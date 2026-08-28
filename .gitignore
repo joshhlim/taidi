@@ -1,0 +1,13 @@
+# Local database — cloud uses Turso instead
+taidi.db
+taidi.db-*
+
+# Secrets (real credentials never go in git)
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
