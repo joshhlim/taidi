@@ -8,6 +8,20 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: taidi
+          POSTGRES_PASSWORD: taidi_dev
+          POSTGRES_DB: taidi
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U taidi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -18,5 +32,13 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy --config-file core/pyproject.toml core/taidi_core
+      - run: mypy --config-file api/pyproject.toml api/app
       - run: pytest tests -q
       - run: pytest core/tests -q
+      - run: pytest api/tests -q
+      - name: Alembic migration round-trip
+        working-directory: api
+        run: |
+          python -m alembic upgrade head
+          python -m alembic downgrade base
+          python -m alembic upgrade head

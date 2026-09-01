@@ -1,0 +1,74 @@
+"""Schema and session management.
+
+Only two tables:
+- `rooms` holds the one piece of state that isn't derivable from the event
+  log — the seed a room is created with (host, invite code, created_at).
+  `RoomState.new(...)` is built directly from this row.
+- `events` is the append-only log. Every other field of RoomState (members,
+  rules, rounds, balances, ...) is derived by folding events on top of the
+  seed via `taidi_core.machine.fold`.
+
+UNIQUE(room_id, seq) on `events` is the concurrency guard: two requests that
+both compute the "next" seq can both try to insert it, but only one INSERT
+succeeds — the loser gets an IntegrityError, mapped to HTTP 409 upstream.
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from .config import settings
+
+metadata = MetaData()
+
+rooms = Table(
+    "rooms",
+    metadata,
+    Column("room_id", PGUUID(as_uuid=True), primary_key=True),
+    Column("invite_code", String(12), unique=True, nullable=False),
+    Column("host_id", PGUUID(as_uuid=True), nullable=False),
+    Column("host_display_name", String(100), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+events = Table(
+    "events",
+    metadata,
+    Column("id", PGUUID(as_uuid=True), primary_key=True),
+    Column("room_id", PGUUID(as_uuid=True), ForeignKey("rooms.room_id"), nullable=False),
+    Column("seq", Integer, nullable=False),
+    Column("type", String(32), nullable=False),
+    Column("actor", PGUUID(as_uuid=True), nullable=True),
+    Column("payload", JSONB, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("room_id", "seq", name="uq_events_room_seq"),
+)
+
+engine = create_async_engine(settings.database_url, echo=False)
+async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def get_session() -> AsyncIterator[AsyncSession]:
+    async with async_session_factory() as session:
+        yield session
+
+
+async def init_models() -> None:
+    """Create tables if they don't exist. Convenience for local dev/tests —
+    the real migration path is Alembic (see api/alembic/)."""
+    async with engine.begin() as conn:
+        await conn.run_sync(metadata.create_all)

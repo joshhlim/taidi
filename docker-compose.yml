@@ -1,0 +1,23 @@
+# Local development only. Supabase is the database once deployed —
+# see docs/adr/0002-pure-python-core-integer-cents.md and api/README.md.
+name: taidi
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: taidi
+      POSTGRES_PASSWORD: taidi_dev
+      POSTGRES_DB: taidi
+    ports:
+      - "5433:5432"
+    volumes:
+      - taidi_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taidi"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  taidi_pg_data:

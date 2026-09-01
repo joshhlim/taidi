@@ -20,3 +20,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["taidi_core*"]
+
+[tool.setuptools.package-data]
+taidi_core = ["py.typed"]

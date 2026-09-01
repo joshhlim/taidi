@@ -58,9 +58,11 @@ where every player acts from their own phone. See
 and [docs/adr/0002-pure-python-core-integer-cents.md](docs/adr/0002-pure-python-core-integer-cents.md)
 for the design, and `CHANGELOG.md` for progress.
 
-`core/taidi_core` is the new domain package implementing that design — it
-isn't wired into the deployed app yet (see `db.py`/`ui.py` below for what
-actually runs in production today).
+`core/taidi_core` is the new domain package implementing that design, and
+`api/` is a FastAPI backend built on it — neither is wired into the deployed
+app yet (see `db.py`/`ui.py` below for what actually runs in production
+today). Run the new stack locally with `docker compose up -d postgres` and
+see [api/README.md](api/README.md).
 
 ## Structure
 
@@ -86,3 +88,16 @@ Streamlit/pandas dependency — see ADR-0002.
 | `taidi_core/stats.py`       | Lifetime stats derived from ended rooms                     |
 | `taidi_core/settlement.py`  | Pairwise netting and greedy debt minimization                |
 | `scripts/migrate_legacy_to_events.py` | Migrates legacy Streamlit archives into `taidi_core` rooms, verifying balances match |
+
+### `api/` — FastAPI backend
+
+The only write path to a room — see [api/README.md](api/README.md) and
+ADR-0003. `docker-compose.yml` at the repo root runs a local Postgres for it.
+
+| Module | Purpose |
+| --- | --- |
+| `app/db.py` | Schema (`rooms`, `events`) and session management |
+| `app/auth.py` | Pluggable JWT auth: dev-mode token minting or Supabase verification |
+| `app/events_store.py` | Persistence + folding the event log back into a `RoomState` |
+| `app/routers/rooms.py` | The room command endpoints |
+| `alembic/` | Migrations |
