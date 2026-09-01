@@ -4,6 +4,6 @@
 -e ./api[dev]
 pytest>=8
 pytest-asyncio>=0.24
-ruff>=0.6
+ruff>=0.16.5
 mypy>=1.10
 hypothesis>=6.100
