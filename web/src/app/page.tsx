@@ -98,9 +98,13 @@ export default function HomePage() {
         {!user ? (
           supabase ? (
             linkSent ? (
-              <p data-testid="link-sent" className="text-center text-sm text-muted">
-                Check your email for a sign-in link.
-              </p>
+              <div data-testid="link-sent" className="text-center space-y-1">
+                <p className="text-sm text-muted">Check your email for a sign-in link.</p>
+                <p className="text-xs text-muted">
+                  If you request another, only the newest one will work — older emails stop
+                  working once you do.
+                </p>
+              </div>
             ) : (
               <form onSubmit={handleMagicLink} className="space-y-3">
                 <input
