@@ -56,8 +56,9 @@ export default function HomePage() {
     try {
       await signInWithMagicLink(email, name);
       setLinkSent(true);
-    } catch {
-      setError("Couldn't send the sign-in link. Try again in a moment.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      setError(message ? `Couldn't send the sign-in link: ${message}` : "Couldn't send the sign-in link. Try again in a moment.");
     } finally {
       setBusy(false);
     }
