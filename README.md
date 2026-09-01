@@ -5,7 +5,12 @@ rules, autosaving games, lifetime analytics.
 
 ## Run locally
 
+All Python packages in this repo (the Streamlit app, `taidi_core`, and the
+FastAPI backend) share one virtualenv at the repo root — create it once:
+
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate   # every session, before running anything Python
 pip install -r requirements.txt
 streamlit run taidi.py
 ```
@@ -15,14 +20,16 @@ Data is stored in a local `taidi.db` SQLite file.
 ### Develop
 
 ```bash
-pip install -r requirements-dev.txt
+source .venv/bin/activate   # if not already active
+pip install -r requirements-dev.txt   # installs taidi_core and taidi_api editable too
 pytest tests -q       # legacy app: engine, persistence, end-to-end AppTest suites
 pytest core/tests -q  # taidi_core: scoring engine + room state machine
 ruff check . && ruff format --check .
 mypy --config-file core/pyproject.toml core/taidi_core
 ```
 
-CI runs the same checks on every push and pull request.
+CI runs the same checks on every push and pull request (in a fresh runner,
+which is its own isolation — no venv needed there).
 
 ### Optional passcode
 

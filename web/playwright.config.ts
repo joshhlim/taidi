@@ -16,7 +16,11 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "cd ../api && uvicorn app.main:app --port 8000",
+      // `python -m uvicorn`, not a bare `uvicorn` — resolves via whichever
+      // Python is active in the shell that runs `npx playwright test`
+      // (the repo's .venv locally; the CI runner's own install in CI).
+      // Activate .venv before running this locally — see web/README.md.
+      command: "cd ../api && python -m uvicorn app.main:app --port 8000",
       url: "http://localhost:8000/healthz",
       reuseExistingServer: false,
       timeout: 30_000,

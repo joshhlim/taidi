@@ -9,6 +9,7 @@ for the design.
 ```bash
 # from the repo root: postgres + api must be running first
 docker compose up -d postgres
+source .venv/bin/activate   # see root README.md — shared venv for all Python packages
 cd api && alembic upgrade head && uvicorn app.main:app --reload &
 cd ../web
 cp .env.local.example .env.local   # points at the local API by default
@@ -28,6 +29,7 @@ Port 3100 (not Next.js's default 3000) is just this repo's convention —
 ## Test
 
 ```bash
+source ../.venv/bin/activate   # playwright.config.ts launches the API itself
 npm run lint
 npm run build                # also typechecks — Next.js generates route
                               # types (e.g. LayoutProps) during build/dev,

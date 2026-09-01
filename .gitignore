@@ -9,6 +9,7 @@ api/.env
 web/.env.local
 
 # Python
+.venv/
 __pycache__/
 *.pyc
 *.egg-info/
