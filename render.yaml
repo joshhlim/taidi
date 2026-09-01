@@ -1,0 +1,24 @@
+# Render Blueprint for the API. Deploy: render.com → New → Blueprint →
+# connect this repo → Render finds this file automatically.
+#
+# Fill in the env vars marked sync: false in the Render dashboard after
+# the first deploy — see api/README.md's "Deploy" section for where each
+# value comes from (Supabase project settings).
+services:
+  - type: web
+    name: gambrole-api
+    runtime: python
+    plan: free
+    rootDir: api
+    buildCommand: "pip install -e ../core -e . && alembic upgrade head"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /healthz
+    envVars:
+      - key: TAIDI_AUTH_MODE
+        value: supabase
+      - key: TAIDI_DATABASE_URL
+        sync: false # postgresql+asyncpg://... — Supabase project settings → Database → Connection string
+      - key: TAIDI_SUPABASE_JWT_SECRET
+        sync: false # Supabase project settings → API → JWT Secret (or "Legacy JWT Secret")
+      - key: TAIDI_CORS_ORIGINS
+        sync: false # JSON array, e.g. ["https://your-app.vercel.app"] — set after the web app is deployed

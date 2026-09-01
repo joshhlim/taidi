@@ -58,7 +58,17 @@ events = Table(
     UniqueConstraint("room_id", "seq", name="uq_events_room_seq"),
 )
 
-engine = create_async_engine(settings.database_url, echo=False)
+engine = create_async_engine(
+    settings.database_url,
+    echo=False,
+    # Disables asyncpg's server-side prepared-statement cache. Harmless
+    # locally; required once TAIDI_DATABASE_URL points at a connection
+    # pooler in transaction mode (e.g. Supabase's pgbouncer) — prepared
+    # statements don't survive being handed to a different physical
+    # connection between statements under that mode, and asyncpg errors
+    # with "prepared statement already exists" without this.
+    connect_args={"statement_cache_size": 0},
+)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 

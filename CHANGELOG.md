@@ -4,6 +4,40 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.2] - 2026-09-01
+
+Groundwork for real accounts and a real deployment (ADR-0005) — Phase 3's
+stats and rulesets need an identity that survives across sessions, which
+`TAIDI_AUTH_MODE=dev`'s fresh-random-UUID-per-login can't provide.
+
+### Added
+- Supabase Auth support end to end: magic-link sign-in (`lib/auth.ts`'s
+  `signInWithMagicLink`), an `/auth/callback` route that exchanges the
+  emailed code for a session, and a `useStoredUser()`/`getStoredAuth()`
+  surface that behaves identically to dev mode for every existing page —
+  room/new pages needed zero changes. Display name rides in the JWT's
+  `user_metadata`, exactly where the API's `_display_name_from_claims`
+  already looked for it since ADR-0003.
+- `TAIDI_AUTH_MODE=supabase` on the API: verifies real Supabase-issued
+  tokens (checking `aud="authenticated"`, not just skipping audience
+  verification as before) against the project's JWT secret. Verified with
+  hand-crafted tokens matching Supabase's real claim shape — no project
+  needed to prove the logic correct.
+- `render.yaml`: a one-click Render Blueprint for the API, verified by
+  installing into a genuinely clean virtualenv (not the developer's
+  already-populated one) and confirming the server boots and serves.
+- `statement_cache_size: 0` on the asyncpg engine — required once
+  `TAIDI_DATABASE_URL` points at a pooled connection (e.g. Supabase's
+  pgbouncer in transaction mode), harmless otherwise.
+- Root README "Deploy the room app" section: the full Supabase → Render →
+  Vercel sequence.
+
+### Changed
+- Local development is completely unaffected — `TAIDI_AUTH_MODE`/
+  `NEXT_PUBLIC_AUTH_MODE` default to `dev` everywhere, and the full test
+  and e2e suites were re-run against dev mode after every change in this
+  release to confirm zero regression.
+
 ## [0.3.1] - 2026-09-01
 
 App renamed to **GamBROle** (multi-game framing — Taidi is the first of

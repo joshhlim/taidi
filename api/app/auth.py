@@ -46,16 +46,20 @@ def mint_dev_token(display_name: str, user_id: UUID | None = None) -> tuple[str,
 def _decode(token: str) -> dict[str, Any]:
     if settings.auth_mode == "dev":
         secret = settings.dev_jwt_secret
+        # Dev tokens carry no audience claim — nothing to check.
+        decode_kwargs: dict[str, Any] = {"options": {"verify_aud": False}}
     else:
         if not settings.supabase_jwt_secret:
             raise HTTPException(
                 status.HTTP_500_INTERNAL_SERVER_ERROR, "Supabase auth is not configured."
             )
         secret = settings.supabase_jwt_secret
+        # Supabase stamps every access token with aud="authenticated" —
+        # verifying it rejects, e.g., a service-role or anon-key token
+        # being mistakenly used as a user's bearer token.
+        decode_kwargs = {"audience": "authenticated"}
     try:
-        return jwt.decode(
-            token, secret, algorithms=["HS256"], audience=None, options={"verify_aud": False}
-        )
+        return jwt.decode(token, secret, algorithms=["HS256"], **decode_kwargs)
     except jwt.PyJWTError as e:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"Invalid token: {e}") from e
 

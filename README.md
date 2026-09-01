@@ -57,13 +57,60 @@ panel restores one (replacing all current data).
 When those secrets are present the app stores everything in Turso (survives
 redeploys and restarts); without them it falls back to the local file.
 
+## Deploy the room app (Supabase + Render + Vercel)
+
+The `core/`/`api/`/`web/` stack (see ADR-0005) isn't live anywhere yet. All
+three are free tiers; the API sleeps on idle the same way the Streamlit app
+does. Do these in order — later steps need values from earlier ones.
+
+**1. Supabase** — [supabase.com](https://supabase.com) → New Project.
+Once it's created, from Project Settings:
+- **API** → copy the **Project URL**, the **`anon` `public` key**, and the
+  **JWT Secret** (or **Legacy JWT Secret**, if that's what's shown).
+- **Database** → **Connection string** → copy the **URI**. Prefix it with
+  `postgresql+asyncpg://` in place of `postgresql://` (SQLAlchemy needs the
+  driver named explicitly).
+- Email auth is on by default — nothing to configure for magic links.
+
+**2. API on Render** — [render.com](https://render.com) → New → Blueprint →
+connect this repo. Render finds `render.yaml` automatically. After the first
+deploy, fill in the env vars it left blank (Render dashboard → the service →
+Environment):
+- `TAIDI_DATABASE_URL` — the Supabase connection string from step 1.
+- `TAIDI_SUPABASE_JWT_SECRET` — the JWT secret from step 1.
+- `TAIDI_CORS_ORIGINS` — leave as `["http://localhost:3000"]` for now;
+  step 4 updates it once the Vercel URL exists.
+
+Copy the Render URL it gives you (`https://gambrole-api.onrender.com` or
+similar) — step 3 needs it.
+
+**3. Web on Vercel** — [vercel.com](https://vercel.com) → New Project →
+import this repo → set **Root Directory** to `web`. Add these environment
+variables before deploying:
+
+```
+NEXT_PUBLIC_API_URL=<the Render URL from step 2>
+NEXT_PUBLIC_AUTH_MODE=supabase
+NEXT_PUBLIC_SUPABASE_URL=<Project URL from step 1>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key from step 1>
+```
+
+**4. Loop back** — in Supabase, Authentication → URL Configuration, add the
+Vercel URL to **Redirect URLs** (`https://your-app.vercel.app/auth/callback`)
+so magic links can complete sign-in. In Render, update `TAIDI_CORS_ORIGINS`
+to `["https://your-app.vercel.app"]` and redeploy.
+
+Open the Vercel URL, sign in with a real email, and you're on the real
+stack. `web/README.md` and `api/README.md` have the day-to-day dev commands;
+ADR-0005 has the reasoning behind these choices.
+
 ## Roadmap
 
 The app is evolving from a single-scorekeeper tool into a multiplayer room
-where every player acts from their own phone. See
-[docs/adr/0001-event-sourced-multiplayer-rooms.md](docs/adr/0001-event-sourced-multiplayer-rooms.md)
-and [docs/adr/0002-pure-python-core-integer-cents.md](docs/adr/0002-pure-python-core-integer-cents.md)
-for the design, and `CHANGELOG.md` for progress.
+where every player acts from their own phone. See `docs/adr/` for the design
+decisions (event-sourced rooms, the pure-Python core, the API's single write
+path, the frontend, and account/deployment choices) and `CHANGELOG.md` for
+progress.
 
 `core/taidi_core` is the new domain package implementing that design,
 `api/` is a FastAPI backend built on it, and `web/` is the Next.js PWA
