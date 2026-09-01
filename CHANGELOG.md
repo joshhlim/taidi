@@ -4,7 +4,41 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-09-01
+
+Magic links turned out to have real friction in practice: only the
+most-recently-requested link works (PKCE overwrites the stored code
+verifier on each request), and Supabase's default email sender has a low
+built-in rate limit that a round of troubleshooting can burn through
+quickly. Email + password removes the email round-trip from sign-in
+entirely — email is now used only for account recovery.
+
+### Added
+- Email + password sign-up, log-in, and forgot-password (`SupabaseAuthForm`),
+  replacing the magic-link form. Sign-up returns a session immediately if
+  the Supabase project has "Confirm email" disabled; otherwise the user is
+  told to confirm by email before logging in.
+- Password reset via a reset-link email: `/auth/callback` now detects
+  Supabase's `PASSWORD_RECOVERY` auth event and shows an inline "set a new
+  password" form instead of just redirecting home.
+- A Settings page (Supabase mode only, linked from Home) for changing
+  display name, email, and password, and signing out.
+- `lib/account.ts` — `updateDisplayName`/`updateEmail`/`updatePassword`,
+  all thin wrappers over `supabase.auth.updateUser`.
+
+### Removed
+- `signInWithMagicLink` — dev mode (name-only login) is unaffected.
+
 ## [0.3.3] - 2026-09-01
+
+### Fixed
+- The "check your email" screen now warns that requesting a new magic
+  link invalidates the previous one, instead of leaving users to hit the
+  confusing "PKCE code verifier not found in storage" error by clicking
+  an older email.
+- A failed magic-link send now surfaces the real Supabase error message
+  (e.g. "email rate limit exceeded") instead of a generic "try again"
+  message that hid the actual cause.
 
 Discovered while actually creating the Supabase project: it uses a JWT
 Signing Key (asymmetric), not the shared HS256 secret ADR-0005 assumed.
