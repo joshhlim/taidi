@@ -3,9 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { getStoredAuth, type CurrentUser } from "@/lib/auth";
+import { useStoredUser } from "@/lib/auth";
 import { usePolling } from "@/lib/usePolling";
-import type { RoomState } from "@/lib/types";
+import type { GameRules, RoomState } from "@/lib/types";
+
+/** Rules chosen on /new before the room existed — see that page for why
+ * this can't just be sent at room-creation time. */
+function readStoredRules(roomId: string): Partial<GameRules> | undefined {
+  try {
+    const raw = sessionStorage.getItem(`gambrole_rules_${roomId}`);
+    return raw ? (JSON.parse(raw) as GameRules) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function money(cents: number): string {
   const dollars = Math.abs(cents) / 100;
@@ -15,15 +26,18 @@ function money(cents: number): string {
 export default function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const router = useRouter();
-  const [user] = useState<CurrentUser | null>(() => getStoredAuth()?.user ?? null);
+  const { user, checked } = useStoredUser();
   const [banner, setBanner] = useState<string | null>(null);
   const [cardsInput, setCardsInput] = useState("");
   const [busy, setBusy] = useState(false);
   const joinedRef = useRef(false);
 
   useEffect(() => {
-    if (!user) router.replace("/");
-  }, [user, router]);
+    // Wait for the client-only auth check to actually complete — redirecting
+    // on the pre-check `user === null` would bounce a genuinely signed-in
+    // user before useStoredUser's own effect has resolved.
+    if (checked && !user) router.replace("/");
+  }, [checked, user, router]);
 
   const { data: state, setData } = usePolling<RoomState>(
     () => api.getState(roomId),
@@ -118,7 +132,7 @@ export default function RoomPage() {
           busy={busy}
           onJoin={() => run((_seq) => api.join(roomId)).then((r) => r && setData(r))}
           onStart={() =>
-            run((seq) => api.start(roomId, seq)).then((r) => r && setData(r))
+            run((seq) => api.start(roomId, seq, readStoredRules(roomId))).then((r) => r && setData(r))
           }
         />
       )}
@@ -150,7 +164,12 @@ export default function RoomPage() {
       )}
 
       {state.status === "ended" && (
-        <EndedView standings={standings} nameOf={nameOf} onHome={() => router.push("/")} />
+        <EndedView
+          standings={standings}
+          nameOf={nameOf}
+          roundsPlayed={state.rounds.length}
+          onHome={() => router.push("/")}
+        />
       )}
     </main>
   );
@@ -364,25 +383,49 @@ function TableView({
 function EndedView({
   standings,
   nameOf,
+  roundsPlayed,
   onHome,
 }: {
   standings: [string, number][];
   nameOf: (id: string) => string;
+  roundsPlayed: number;
   onHome: () => void;
 }) {
+  const [topId, topCents] = standings[0] ?? [null, 0];
+
   return (
     <div className="space-y-6">
-      <p data-testid="game-over" className="text-center text-sm font-semibold text-brand-strong">Game over</p>
+      <div className="text-center space-y-1">
+        <p data-testid="game-over" className="text-lg font-extrabold text-brand">
+          Game Over
+        </p>
+        <p className="text-xs uppercase tracking-widest text-muted">
+          {roundsPlayed} round{roundsPlayed === 1 ? "" : "s"} played
+        </p>
+      </div>
+
+      {topId && (
+        <p className="text-center text-sm text-muted">
+          <span className="font-semibold text-foreground">{nameOf(topId)}</span> wins with{" "}
+          <span className="font-bold text-brand-strong">{money(topCents)}</span>
+        </p>
+      )}
+
       <div className="space-y-2">
         {standings.map(([playerId, cents], idx) => (
           <div
             key={playerId}
+            data-testid="standing-row"
+            data-player={nameOf(playerId)}
             className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
               idx === 0 ? "border-gold bg-[#FFF8E1]" : "border-border bg-surface"
             }`}
           >
             <span className="font-medium">{nameOf(playerId)}</span>
-            <span className={`font-bold ${cents < 0 ? "text-danger" : "text-brand-strong"}`}>
+            <span
+              data-testid="standing-amount"
+              className={`font-bold ${cents < 0 ? "text-danger" : "text-brand-strong"}`}
+            >
               {money(cents)}
             </span>
           </div>
@@ -390,6 +433,7 @@ function EndedView({
       </div>
       <button
         onClick={onHome}
+        data-testid="back-to-home-btn"
         className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white"
       >
         Back to Home

@@ -4,6 +4,54 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-09-01
+
+App renamed to **GamBROle** (multi-game framing — Taidi is the first of
+several games it'll host) and the "New Room" flow now matches that: pick a
+game, then (for Taidi) configure every rule the old Streamlit app exposed
+before the room is created.
+
+### Added
+- Rebrand: "GamBROle" across the manifest, page metadata, and home screen;
+  new monogram icon (was Taidi's card-specific "2 of spades" mark).
+- Home screen now has three post-login actions: New Room, Join Room, and
+  My Stats (a real placeholder screen — "feature not available yet" —
+  not a dead button).
+- `/new`: pick a game (Taidi, Mahjong, Poker). Mahjong and Poker show the
+  same not-available placeholder. Taidi shows the full rules editor —
+  card value, base cards, double/triple multiplier toggle and thresholds,
+  difference payouts, special hands toggle and value — matching every
+  field the legacy Streamlit app exposed. The chosen rules travel with the
+  room (held client-side until `start_game`, since the room can't apply
+  rules until players have joined) and are what the game actually plays
+  by, not just cosmetic.
+- End-game screen now shows rounds played and a "so-and-so wins with
+  $X" callout alongside the final standings, visible to every player's
+  device the moment the game ends (already true structurally; this made
+  it read as real final stats rather than just a balances list).
+- e2e coverage for all of the above, including an exact-value assertion
+  (a room created at $1.00/card resolves round 1 to precisely $29.00 for
+  the winner) proving the configured rules reach the scoring engine, not
+  just that *some* room got created.
+
+### Fixed
+- A real hydration bug, not just a test artifact: any returning user with
+  a stored session hit `Hydration failed because the server rendered HTML
+  didn't match the client` on every page load of `/`, `/new`, and
+  `/room/{id}`. Cause: reading `localStorage` in a lazy `useState`
+  initializer runs during SSR too (where there's no `window`, so it
+  always resolves to "logged out"), while the client's first hydration
+  pass resolves the real stored value — a guaranteed mismatch for anyone
+  with an existing session. That lazy-init pattern was itself an earlier
+  "fix" for an eslint `react-hooks/set-state-in-effect` warning; the
+  correct fix was recognizing that a `localStorage` read is exactly the
+  "subscribe to an external system" case that rule is meant to allow via
+  an effect, not to avoid. Fixed with a shared `useStoredUser()` hook
+  that defers the read to an effect and exposes a `checked` flag so
+  auth-gated pages don't redirect a real user during the one-tick window
+  before the check resolves. Verified via a targeted reload-with-existing-session
+  repro (caught the bug, then confirmed clean) in addition to the full suite.
+
 ## [0.3.0] - 2026-09-01
 
 Phase 2: the first live-room vertical slice, end to end — a room where

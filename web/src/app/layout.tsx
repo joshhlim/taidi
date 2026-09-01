@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Taidi",
-  description: "Live score keeping for Big Two nights",
+  title: "GamBROle",
+  description: "Live score keeping for game night — Taidi, mahjong, poker",
 };
 
 export const viewport: Viewport = {

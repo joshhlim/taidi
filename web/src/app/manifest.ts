@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Taidi",
-    short_name: "Taidi",
-    description: "Live score keeping for Big Two nights",
+    name: "GamBROle",
+    short_name: "GamBROle",
+    description: "Live score keeping for game night — Taidi, mahjong, poker",
     start_url: "/",
     display: "standalone",
     background_color: "#F7F5F0",

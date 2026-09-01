@@ -13,6 +13,17 @@ async function login(page: Page, name: string) {
   await expect(page.getByText(`Signed in as ${name}`)).toBeVisible();
 }
 
+/** Creates a Taidi room with a custom card value, proving the rules chosen
+ * on /new actually reach the room (not just that *some* rules apply). */
+async function createTaidiRoom(page: Page, cardValueDollars: string) {
+  await page.getByTestId("new-room-btn").click();
+  await expect(page).toHaveURL(/\/new/);
+  await page.getByTestId("game-tile-taidi").click();
+  await page.getByTestId("rule-card-value").fill(cardValueDollars);
+  await page.getByTestId("create-room-btn").click();
+  await expect(page).toHaveURL(/\/room\//);
+}
+
 test("a full game across three simulated devices", async ({ browser }) => {
   const aliceCtx = await browser.newContext();
   const bobCtx = await browser.newContext();
@@ -27,9 +38,10 @@ test("a full game across three simulated devices", async ({ browser }) => {
     await login(bob, `Bob-${uniq}`);
     await login(charlie, `Charlie-${uniq}`);
 
-    // Alice creates a room and shares the code
-    await alice.getByTestId("new-room-btn").click();
-    await expect(alice).toHaveURL(/\/room\//);
+    // Alice creates a Taidi room at $1.00/card (not the $0.20 default) and
+    // shares the code — the custom value is verified against an exact
+    // expected balance once round 1 resolves, below.
+    await createTaidiRoom(alice, "1.00");
     const inviteCode = (await alice.getByTestId("invite-code").textContent())?.trim();
     expect(inviteCode).toMatch(/^[A-Z0-9]{6}$/);
 
@@ -74,12 +86,17 @@ test("a full game across three simulated devices", async ({ browser }) => {
       await expect(p.getByTestId("win-btn")).toBeVisible({ timeout: 10_000 });
     }
 
-    // Balances updated and are visible to everyone, not just the actor
+    // Balances updated and are visible to everyone, not just the actor.
+    // At the default rules, $1.00/card, Alice=0, Bob=3, Charlie=11:
+    //   Bob pays  3 x1 (cards) +  2 (base)                     = $5
+    //   Charlie pays 11 x2 (cards) + (11-3) x2 (diff, to Bob) + 2 (base) = $40
+    //   Alice receives cards+base = $29.00 exactly — the custom $1.00/card
+    //   value only shows up in a number this large, proving it was applied.
     for (const p of [alice, bob, charlie]) {
       const aliceAmount = p
         .locator('[data-testid="standing-row"][data-player^="Alice-"] [data-testid="standing-amount"]')
         .first();
-      await expect(aliceAmount).not.toHaveText("$0.00", { timeout: 10_000 });
+      await expect(aliceAmount).toHaveText("$29.00", { timeout: 10_000 });
     }
 
     // Bob claims a special hand mid-round — settles immediately for everyone
@@ -94,14 +111,37 @@ test("a full game across three simulated devices", async ({ browser }) => {
         .first(),
     ).not.toHaveText(bobBefore ?? "", { timeout: 10_000 });
 
-    // Anyone can end the game — everyone sees it end, from their own device
+    // Anyone can end the game — everyone sees the final-stats screen,
+    // from their own device, not just the player who clicked End Game.
     await charlie.getByTestId("end-game-btn").click();
     for (const p of [alice, bob, charlie]) {
       await expect(p.getByTestId("game-over")).toBeVisible({ timeout: 10_000 });
+      await expect(p.getByText(/rounds? played/)).toBeVisible();
+      await expect(p.getByTestId("standing-row")).toHaveCount(3);
     }
   } finally {
     await aliceCtx.close();
     await bobCtx.close();
     await charlieCtx.close();
   }
+});
+
+test("mahjong and poker show as not-available yet", async ({ page }) => {
+  await login(page, `Dana-${Date.now().toString(36)}`);
+  await page.getByTestId("new-room-btn").click();
+  await expect(page).toHaveURL(/\/new/);
+
+  for (const game of ["mahjong", "poker"] as const) {
+    await page.getByTestId(`game-tile-${game}`).click();
+    await expect(page.getByTestId("not-available")).toBeVisible();
+    await page.getByText("Choose another game").click();
+    await expect(page.getByTestId(`game-tile-${game}`)).toBeVisible();
+  }
+});
+
+test("my stats shows as not-available yet", async ({ page }) => {
+  await login(page, `Eve-${Date.now().toString(36)}`);
+  await page.getByTestId("my-stats-btn").click();
+  await expect(page).toHaveURL(/\/stats/);
+  await expect(page.getByTestId("not-available")).toBeVisible();
 });
