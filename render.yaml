@@ -18,7 +18,9 @@ services:
         value: supabase
       - key: TAIDI_DATABASE_URL
         sync: false # postgresql+asyncpg://... — Supabase project settings → Database → Connection string
+      - key: TAIDI_SUPABASE_URL
+        sync: false # https://<project-ref>.supabase.co — set this if your project uses a "JWT Signing Key" (newer projects)
       - key: TAIDI_SUPABASE_JWT_SECRET
-        sync: false # Supabase project settings → API → JWT Secret (or "Legacy JWT Secret")
+        sync: false # Supabase project settings → API → "JWT Secret" / "Legacy JWT Secret" — set this instead if your project has one (older projects). Leave both blank only if neither applies.
       - key: TAIDI_CORS_ORIGINS
         sync: false # JSON array, e.g. ["https://your-app.vercel.app"] — set after the web app is deployed

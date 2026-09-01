@@ -68,3 +68,19 @@ place to run that isn't a laptop.
   claim flow — those stay queued behind this phase's actual deploy, since
   several of them need to be tested against the real hosted database, not a
   local one.
+
+## Update (same day, during the actual account creation)
+
+The real Supabase project turned out to use a **JWT Signing Key**
+(asymmetric, verified via a public JWKS endpoint), not the shared HS256
+secret this ADR's decision 4 assumed — Supabase has moved newer projects to
+that model by default. `auth.py` now supports both: JWKS (`TAIDI_SUPABASE_URL`,
+via `PyJWKClient`) is tried first when configured, falling back to the shared
+secret (`TAIDI_SUPABASE_JWT_SECRET`) for older projects that still have one.
+`pyjwt[crypto]` (pulls in `cryptography`) was added to `api/`'s dependencies
+— asymmetric algorithms don't work without it, caught before it could fail
+silently in production by the same clean-venv verification approach as the
+Render build command. Both paths are covered in
+`test_auth_supabase_mode.py`, the JWKS one using a real generated EC keypair
+and a monkeypatched `PyJWKClient.fetch_data` rather than a live network call.
+No other part of the design changed.

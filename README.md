@@ -63,13 +63,21 @@ The `core/`/`api/`/`web/` stack (see ADR-0005) isn't live anywhere yet. All
 three are free tiers; the API sleeps on idle the same way the Streamlit app
 does. Do these in order — later steps need values from earlier ones.
 
-**1. Supabase** — [supabase.com](https://supabase.com) → New Project.
-Once it's created, from Project Settings:
-- **API** → copy the **Project URL**, the **`anon` `public` key**, and the
-  **JWT Secret** (or **Legacy JWT Secret**, if that's what's shown).
-- **Database** → **Connection string** → copy the **URI**. Prefix it with
-  `postgresql+asyncpg://` in place of `postgresql://` (SQLAlchemy needs the
-  driver named explicitly).
+**1. Supabase** — [supabase.com](https://supabase.com) → New Project. When
+prompted, disable "Enable Data API" (this app never queries Supabase's
+REST layer — the API talks to Postgres directly, and the frontend only ever
+talks to the API); leave automatic RLS on. Once it's created:
+- **Project Settings → API** → copy the **`publishable`** (or **`anon`
+  `public`**) key — *not* `secret`/`service_role`, which this app never
+  uses. The **Project URL** is usually here too; if not, check **Project
+  Settings → General** for the **Reference ID** and build it as
+  `https://<reference-id>.supabase.co`.
+- Same page: look for a **JWT Secret** / **Legacy JWT Secret** you can
+  reveal. Newer projects show a **JWT Signing Key** instead with no plain
+  secret — that's fine, just note which case you're in for step 2.
+- **Project Settings → Database → Connection string** → copy the **URI**.
+  Prefix it with `postgresql+asyncpg://` in place of `postgresql://`
+  (SQLAlchemy needs the driver named explicitly).
 - Email auth is on by default — nothing to configure for magic links.
 
 **2. API on Render** — [render.com](https://render.com) → New → Blueprint →
@@ -77,7 +85,10 @@ connect this repo. Render finds `render.yaml` automatically. After the first
 deploy, fill in the env vars it left blank (Render dashboard → the service →
 Environment):
 - `TAIDI_DATABASE_URL` — the Supabase connection string from step 1.
-- `TAIDI_SUPABASE_JWT_SECRET` — the JWT secret from step 1.
+- **If your project showed a JWT Signing Key** (no plain secret):
+  `TAIDI_SUPABASE_URL` — the Project URL from step 1.
+- **If your project showed a JWT Secret / Legacy JWT Secret**:
+  `TAIDI_SUPABASE_JWT_SECRET` — that value instead.
 - `TAIDI_CORS_ORIGINS` — leave as `["http://localhost:3000"]` for now;
   step 4 updates it once the Vercel URL exists.
 

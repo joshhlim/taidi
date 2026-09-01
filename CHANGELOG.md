@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.3] - 2026-09-01
+
+Discovered while actually creating the Supabase project: it uses a JWT
+Signing Key (asymmetric), not the shared HS256 secret ADR-0005 assumed.
+Supabase has moved newer projects to that model by default.
+
+### Added
+- JWKS-based JWT verification (`TAIDI_SUPABASE_URL`, via `PyJWKClient`),
+  tried first when configured, falling back to the shared-secret path for
+  older projects that still have one. `pyjwt[crypto]` added to `api/`'s
+  dependencies — asymmetric algorithms silently don't work without
+  `cryptography` installed; caught by the same clean-venv verification
+  used for the Render build command, before it could fail in production.
+- 5 new tests covering the JWKS path with a real generated EC keypair and
+  a monkeypatched `PyJWKClient.fetch_data` (no live network call), plus a
+  test proving JWKS wins when both a URL and a legacy secret are set.
+- `render.yaml`, `api/.env.example`, and the README's deploy steps updated
+  to ask which case a project is in and set the right variable.
+
 ## [0.3.2] - 2026-09-01
 
 Groundwork for real accounts and a real deployment (ADR-0005) — Phase 3's
