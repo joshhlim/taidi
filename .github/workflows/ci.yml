@@ -17,4 +17,6 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
       - run: ruff format --check .
-      - run: pytest -q
+      - run: mypy --config-file core/pyproject.toml core/taidi_core
+      - run: pytest tests -q
+      - run: pytest core/tests -q

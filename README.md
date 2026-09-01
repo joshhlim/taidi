@@ -16,8 +16,10 @@ Data is stored in a local `taidi.db` SQLite file.
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q            # engine, persistence, and end-to-end AppTest suites
+pytest tests -q       # legacy app: engine, persistence, end-to-end AppTest suites
+pytest core/tests -q  # taidi_core: scoring engine + room state machine
 ruff check . && ruff format --check .
+mypy --config-file core/pyproject.toml core/taidi_core
 ```
 
 CI runs the same checks on every push and pull request.
@@ -53,9 +55,16 @@ redeploys and restarts); without them it falls back to the local file.
 The app is evolving from a single-scorekeeper tool into a multiplayer room
 where every player acts from their own phone. See
 [docs/adr/0001-event-sourced-multiplayer-rooms.md](docs/adr/0001-event-sourced-multiplayer-rooms.md)
-for the design and `CHANGELOG.md` for progress.
+and [docs/adr/0002-pure-python-core-integer-cents.md](docs/adr/0002-pure-python-core-integer-cents.md)
+for the design, and `CHANGELOG.md` for progress.
+
+`core/taidi_core` is the new domain package implementing that design — it
+isn't wired into the deployed app yet (see `db.py`/`ui.py` below for what
+actually runs in production today).
 
 ## Structure
+
+### Deployed app (Streamlit)
 
 | File      | Purpose                                              |
 | --------- | ---------------------------------------------------- |
@@ -63,3 +72,17 @@ for the design and `CHANGELOG.md` for progress.
 | `game.py` | Game rules, scoring engine, lifetime stats           |
 | `db.py`   | Persistence (local SQLite or Turso)                  |
 | `ui.py`   | All rendering: CSS, home screen, pages               |
+
+### `core/` — `taidi_core`, the multiplayer domain package
+
+A separate, installable package (own `pyproject.toml`, own tests) with no
+Streamlit/pandas dependency — see ADR-0002.
+
+| Module                     | Purpose                                                    |
+| --------------------------- | ----------------------------------------------------------- |
+| `taidi_core/models.py`      | Typed vocabulary: `GameRules`, `Transfer`, `RoundState`, `RoomState`, `Event`, `PlayerStats`, `Settlement` |
+| `taidi_core/rules.py`       | The scoring engine (card transfers, special-hand transfers) |
+| `taidi_core/machine.py`     | The room/round event-sourced state machine                  |
+| `taidi_core/stats.py`       | Lifetime stats derived from ended rooms                     |
+| `taidi_core/settlement.py`  | Pairwise netting and greedy debt minimization                |
+| `scripts/migrate_legacy_to_events.py` | Migrates legacy Streamlit archives into `taidi_core` rooms, verifying balances match |

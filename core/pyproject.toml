@@ -1,0 +1,22 @@
+[project]
+name = "taidi-core"
+version = "0.1.0"
+description = "Pure Python domain core for Taidi: scoring engine and multiplayer room state machine"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.6"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "hypothesis>=6.100", "mypy>=1.10"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["taidi_core*"]

@@ -1,3 +1,6 @@
 -r requirements.txt
+-e ./core
 pytest>=8
 ruff>=0.6
+mypy>=1.10
+hypothesis>=6.100
