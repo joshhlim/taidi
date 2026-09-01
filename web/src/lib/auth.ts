@@ -148,19 +148,48 @@ export async function devLogin(displayName: string): Promise<StoredAuth> {
 }
 
 /**
- * Supabase mode: emails a sign-in link. `displayName` rides along in
- * `options.data`, which Supabase stores as the user's `user_metadata` —
- * exactly where the API's `_display_name_from_claims` already looks for it
- * (see api/app/auth.py), so no backend change was needed for this.
+ * Supabase mode: create an account with email + password. `displayName`
+ * rides along in `options.data`, which Supabase stores as the user's
+ * `user_metadata` — exactly where the API's `_display_name_from_claims`
+ * already looks for it (see api/app/auth.py), so no backend change was
+ * needed for this.
+ *
+ * Returns null if the project has "Confirm email" enabled — the account
+ * exists but can't sign in until the confirmation link is clicked. With it
+ * disabled (recommended for this app — see README), a session comes back
+ * immediately and the caller is signed in with no email step at all.
  */
-export async function signInWithMagicLink(email: string, displayName: string): Promise<void> {
+export async function signUpWithPassword(
+  email: string,
+  password: string,
+  displayName: string,
+): Promise<StoredAuth | null> {
   if (!supabase) throw new Error("Supabase auth is not configured.");
-  const { error } = await supabase.auth.signInWithOtp({
+  const { data, error } = await supabase.auth.signUp({
     email,
-    options: {
-      data: { display_name: displayName },
-      emailRedirectTo: `${window.location.origin}/auth/callback`,
-    },
+    password,
+    options: { data: { display_name: displayName } },
+  });
+  if (error) throw error;
+  return supabaseSessionToStoredAuth(data.session);
+}
+
+export async function signInWithPassword(email: string, password: string): Promise<StoredAuth> {
+  if (!supabase) throw new Error("Supabase auth is not configured.");
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  const auth = supabaseSessionToStoredAuth(data.session);
+  if (!auth) throw new Error("Sign-in did not return a session.");
+  return auth;
+}
+
+/** Emails a reset link. Supabase fires a PASSWORD_RECOVERY auth event when
+ * the link is clicked — /auth/callback listens for it and prompts for a
+ * new password instead of just signing the user in. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  if (!supabase) throw new Error("Supabase auth is not configured.");
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/callback`,
   });
   if (error) throw error;
 }

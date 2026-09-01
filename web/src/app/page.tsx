@@ -3,20 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import {
-  devLogin,
-  getStoredAuth,
-  signInWithMagicLink,
-  signOut,
-  supabase,
-  type CurrentUser,
-} from "@/lib/auth";
+import { devLogin, getStoredAuth, signOut, supabase, type CurrentUser } from "@/lib/auth";
+import SupabaseAuthForm from "@/components/SupabaseAuthForm";
 
 export default function HomePage() {
   const router = useRouter();
   // See useStoredUser's doc comment in lib/auth.ts — a lazy initializer
   // here would mismatch server vs. first-client-hydration render for any
-  // returning user. This needs its own setter (handleLogin updates it
+  // returning user. This needs its own setter (login handlers update it
   // immediately) so it can't just use that shared hook.
   const [user, setUser] = useState<CurrentUser | null>(null);
   useEffect(() => {
@@ -24,11 +18,9 @@ export default function HomePage() {
     setUser(getStoredAuth()?.user ?? null);
   }, []);
   const [nameInput, setNameInput] = useState("");
-  const [emailInput, setEmailInput] = useState("");
   const [codeInput, setCodeInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [linkSent, setLinkSent] = useState(false);
 
   async function handleDevLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -41,24 +33,6 @@ export default function HomePage() {
       setUser(auth.user);
     } catch {
       setError("Couldn't sign in. Is the API running?");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault();
-    const email = emailInput.trim();
-    const name = nameInput.trim();
-    if (!email || !name) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await signInWithMagicLink(email, name);
-      setLinkSent(true);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "";
-      setError(message ? `Couldn't send the sign-in link: ${message}` : "Couldn't send the sign-in link. Try again in a moment.");
     } finally {
       setBusy(false);
     }
@@ -98,42 +72,7 @@ export default function HomePage() {
 
         {!user ? (
           supabase ? (
-            linkSent ? (
-              <div data-testid="link-sent" className="text-center space-y-1">
-                <p className="text-sm text-muted">Check your email for a sign-in link.</p>
-                <p className="text-xs text-muted">
-                  If you request another, only the newest one will work — older emails stop
-                  working once you do.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleMagicLink} className="space-y-3">
-                <input
-                  className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-brand-strong"
-                  data-testid="display-name-input"
-                  placeholder="Your name"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  autoFocus
-                />
-                <input
-                  type="email"
-                  className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-brand-strong"
-                  data-testid="email-input"
-                  placeholder="you@example.com"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  disabled={busy || !nameInput.trim() || !emailInput.trim()}
-                  data-testid="continue-btn"
-                  className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  Send sign-in link
-                </button>
-              </form>
-            )
+            <SupabaseAuthForm onSignedIn={setUser} />
           ) : (
             <form onSubmit={handleDevLogin} className="space-y-3">
               <input
@@ -195,6 +134,16 @@ export default function HomePage() {
             >
               My Stats
             </button>
+
+            {supabase && (
+              <button
+                onClick={() => router.push("/settings")}
+                data-testid="settings-btn"
+                className="w-full rounded-xl border border-border py-3 text-sm font-semibold text-muted"
+              >
+                Settings
+              </button>
+            )}
 
             <button
               onClick={handleSignOut}
