@@ -20,9 +20,11 @@ from uuid import uuid4
 DB_PATH = Path(__file__).parent / "taidi.db"
 
 
-def _secret(key: str):
+def secret(key: str):
+    """Read a setting from Streamlit secrets, falling back to the environment."""
     try:
         import streamlit as st
+
         if key in st.secrets:
             return st.secrets[key]
     except Exception:
@@ -31,10 +33,11 @@ def _secret(key: str):
 
 
 def _connect_raw():
-    url = _secret("TURSO_DATABASE_URL")
+    url = secret("TURSO_DATABASE_URL")
     if url:
         import libsql
-        token = _secret("TURSO_AUTH_TOKEN")
+
+        token = secret("TURSO_AUTH_TOKEN")
         kwargs = {"auth_token": token} if token else {}
         return libsql.connect(url, **kwargs)
     return sqlite3.connect(DB_PATH)
@@ -89,6 +92,7 @@ def init_db():
 
 # ============== Players ==============
 
+
 def player_add(name: str) -> str:
     """Add a player (case-insensitive dedupe). Returns the player id."""
     name_clean = name.strip()
@@ -132,6 +136,7 @@ def players_clear():
 
 # ============== Archived (finished) games ==============
 
+
 def archive_add(entry: dict) -> str:
     archive_id = entry.get("archive_id") or str(uuid4())
     entry["archive_id"] = archive_id
@@ -161,6 +166,7 @@ def archive_clear():
 
 # ============== Active (unfinished) games ==============
 
+
 def game_save(game_id: str, snapshot: dict):
     with _conn() as c:
         c.execute(
@@ -186,10 +192,7 @@ def games_all() -> list[dict]:
         rows = c.execute(
             "SELECT game_id, updated_at, data FROM active_games ORDER BY updated_at DESC"
         ).fetchall()
-        return [
-            {"game_id": r[0], "updated_at": r[1], "data": json.loads(r[2])}
-            for r in rows
-        ]
+        return [{"game_id": r[0], "updated_at": r[1], "data": json.loads(r[2])} for r in rows]
 
 
 def names_in_active_games() -> set[str]:
@@ -197,6 +200,7 @@ def names_in_active_games() -> set[str]:
 
 
 # ============== Player rename (propagates everywhere) ==============
+
 
 def _rename_in_game_dict(d: dict, old: str, new: str) -> bool:
     """Rename a player inside one game dict (archive entry or tracker snapshot)."""
@@ -267,6 +271,7 @@ def rename_player(old: str, new: str) -> tuple[bool, str]:
 
 # ============== Settings (e.g. last-used rules) ==============
 
+
 def settings_get(key: str, default=None):
     with _conn() as c:
         row = c.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
@@ -282,6 +287,7 @@ def settings_set(key: str, value):
 
 
 # ============== Rulesets (named rule presets) ==============
+
 
 def ruleset_save(name: str, rules_dict: dict):
     with _conn() as c:
@@ -302,7 +308,62 @@ def ruleset_delete(name: str):
         c.execute("DELETE FROM rulesets WHERE name = ?", (name,))
 
 
+# ============== Backup: export / import everything ==============
+
+EXPORT_VERSION = 1
+
+
+def export_all() -> dict:
+    """Full backup of every table as one JSON-serialisable dict."""
+    with _conn() as c:
+        players = c.execute("SELECT player_id, name, created_at FROM players").fetchall()
+        archived = c.execute("SELECT archive_id, created_at, data FROM archived_games").fetchall()
+        active = c.execute("SELECT game_id, updated_at, data FROM active_games").fetchall()
+        settings = c.execute("SELECT key, value FROM settings").fetchall()
+        rulesets = c.execute("SELECT name, data FROM rulesets").fetchall()
+    return {
+        "version": EXPORT_VERSION,
+        "exported_at": _now(),
+        "players": [{"player_id": r[0], "name": r[1], "created_at": r[2]} for r in players],
+        "archived_games": [json.loads(r[2]) for r in archived],
+        "active_games": [
+            {"game_id": r[0], "updated_at": r[1], "data": json.loads(r[2])} for r in active
+        ],
+        "settings": {r[0]: json.loads(r[1]) for r in settings},
+        "rulesets": {r[0]: json.loads(r[1]) for r in rulesets},
+    }
+
+
+def import_all(backup: dict):
+    """Replace ALL data with the contents of a backup produced by export_all()."""
+    if backup.get("version") != EXPORT_VERSION:
+        raise ValueError(f"Unsupported backup version: {backup.get('version')!r}")
+    with _conn() as c:
+        for table in ("players", "archived_games", "active_games", "settings", "rulesets"):
+            c.execute(f"DELETE FROM {table}")
+        for p in backup.get("players", []):
+            c.execute(
+                "INSERT INTO players (player_id, name, created_at) VALUES (?, ?, ?)",
+                (p["player_id"], p["name"], p.get("created_at") or _now()),
+            )
+        for entry in backup.get("archived_games", []):
+            c.execute(
+                "INSERT INTO archived_games (archive_id, created_at, data) VALUES (?, ?, ?)",
+                (entry["archive_id"], entry.get("created_at", _now()), json.dumps(entry)),
+            )
+        for g in backup.get("active_games", []):
+            c.execute(
+                "INSERT INTO active_games (game_id, updated_at, data) VALUES (?, ?, ?)",
+                (g["game_id"], g.get("updated_at") or _now(), json.dumps(g["data"])),
+            )
+        for key, value in backup.get("settings", {}).items():
+            c.execute("INSERT INTO settings (key, value) VALUES (?, ?)", (key, json.dumps(value)))
+        for name, data in backup.get("rulesets", {}).items():
+            c.execute("INSERT INTO rulesets (name, data) VALUES (?, ?)", (name, json.dumps(data)))
+
+
 # ============== Factory reset ==============
+
 
 def factory_reset():
     with _conn() as c:

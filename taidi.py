@@ -27,6 +27,12 @@ st.set_page_config(
 db.init_db()
 ui.inject_css()
 
+# Optional shared passcode (set APP_PASSCODE in secrets to enable)
+_passcode = db.secret("APP_PASSCODE")
+if _passcode and not st.session_state.get("authed"):
+    ui.render_passcode(str(_passcode))
+    st.stop()
+
 if "page" not in st.session_state:
     st.session_state.page = st.query_params.get("page", "home")
 

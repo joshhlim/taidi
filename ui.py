@@ -5,6 +5,7 @@ button in the top-left. The current page (and active game) is mirrored into
 the URL query params so a refresh lands you back where you were.
 """
 
+import json
 from datetime import datetime
 from html import escape as _esc
 from uuid import uuid4
@@ -158,13 +159,22 @@ def _neg_red(v):
 
 # ============== Custom components ==============
 
-_CHART_COLORS = ["#1E6B4F", "#D9B44A", "#B3592E", "#3B6EA5", "#8A5CA5", "#C0392B", "#5A5648", "#2AA198"]
+_CHART_COLORS = [
+    "#1E6B4F",
+    "#D9B44A",
+    "#B3592E",
+    "#3B6EA5",
+    "#8A5CA5",
+    "#C0392B",
+    "#5A5648",
+    "#2AA198",
+]
 
 
 def _stat_cards(cards: list[tuple[str, str, str]]):
     """Row of equal-height stat cards. Each card: (label, value_html, sub_html)."""
     cols = st.columns(len(cards))
-    for col, (label, value, sub) in zip(cols, cards):
+    for col, (label, value, sub) in zip(cols, cards, strict=True):
         sub_html = f'<div class="stat-sub">{sub}</div>' if sub else ""
         col.markdown(
             f'<div class="stat-card"><div class="stat-label">{label}</div>'
@@ -199,8 +209,9 @@ def _fmt_delta(d: float) -> tuple[str, str]:
     return money(d), "amt-neg"
 
 
-def _round_earnings_html(history_df: pd.DataFrame, players: list[str],
-                         totals: dict, winners: list) -> str:
+def _round_earnings_html(
+    history_df: pd.DataFrame, players: list[str], totals: dict, winners: list
+) -> str:
     headers = [("Round", "")] + [(_esc(p), "r") for p in players]
     rows = []
     prev = {p: 0.0 for p in players}
@@ -223,11 +234,15 @@ def _round_earnings_html(history_df: pd.DataFrame, players: list[str],
     return _nice_table(headers, rows)
 
 
-def _render_round_earnings(history_df: pd.DataFrame, players: list[str],
-                           totals: dict, winners: list, key: str):
+def _render_round_earnings(
+    history_df: pd.DataFrame, players: list[str], totals: dict, winners: list, key: str
+):
     view = st.segmented_control(
-        "View", ["By round", "Trend"], default="By round",
-        key=key, label_visibility="collapsed",
+        "View",
+        ["By round", "Trend"],
+        default="By round",
+        key=key,
+        label_visibility="collapsed",
     )
     if view == "Trend":
         cum = history_df.T.copy()
@@ -244,8 +259,13 @@ def _render_round_earnings(history_df: pd.DataFrame, players: list[str],
 
 def _render_leaderboard(stats: pd.DataFrame):
     headers = [
-        ("", ""), ("Player", ""), ("Games", "r"), ("Total", "r"),
-        ("Avg / game", "r"), ("W – L – T", "r"), ("Last played", "r"),
+        ("", ""),
+        ("Player", ""),
+        ("Games", "r"),
+        ("Total", "r"),
+        ("Avg / game", "r"),
+        ("W – L – T", "r"),
+        ("Last played", "r"),
     ]
     rows = []
     badge_tiers = {0: "gold", 1: "silver", 2: "bronze"}
@@ -253,38 +273,52 @@ def _render_leaderboard(stats: pd.DataFrame):
         badge = badge_tiers.get(i, "")
         total = float(row["Total"])
         avg = float(row["Avg/Game"])
-        rows.append(("", [
-            _cell(f'<span class="rank-badge {badge}">{i + 1}</span>'),
-            _cell(f"<b>{_esc(str(row['Player']))}</b>"),
-            _cell(str(int(row["Games"])), "r"),
-            _cell(money(total), f"r {_amt_cls(total)}"),
-            _cell(money(avg), f"r {_amt_cls(avg)}"),
-            _cell(f"{int(row['W'])} – {int(row['L'])} – {int(row['T'])}", "r"),
-            _cell(_esc(str(row["Last Played"])), "r muted"),
-        ]))
+        rows.append(
+            (
+                "",
+                [
+                    _cell(f'<span class="rank-badge {badge}">{i + 1}</span>'),
+                    _cell(f"<b>{_esc(str(row['Player']))}</b>"),
+                    _cell(str(int(row["Games"])), "r"),
+                    _cell(money(total), f"r {_amt_cls(total)}"),
+                    _cell(money(avg), f"r {_amt_cls(avg)}"),
+                    _cell(f"{int(row['W'])} – {int(row['L'])} – {int(row['T'])}", "r"),
+                    _cell(_esc(str(row["Last Played"])), "r muted"),
+                ],
+            )
+        )
     st.markdown(_nice_table(headers, rows), unsafe_allow_html=True)
 
 
 def _pergame_html(trend: pd.DataFrame) -> str:
     headers = [
-        ("When", ""), ("Rounds", "r"), ("Card value", "r"),
-        ("Net", "r"), ("Cumulative", "r"),
+        ("When", ""),
+        ("Rounds", "r"),
+        ("Card value", "r"),
+        ("Net", "r"),
+        ("Cumulative", "r"),
     ]
     rows = []
     for _, r in trend.iloc[::-1].iterrows():
         net = float(r["Net"])
         cum = float(r["Cumulative"])
-        rows.append(("", [
-            _cell(r["When"].strftime("%Y-%m-%d %H:%M")),
-            _cell(str(int(r["Rounds"])), "r"),
-            _cell(money(r["Card Value"]), "r muted"),
-            _cell(money(net), f"r {_amt_cls(net)}"),
-            _cell(money(cum), f"r {_amt_cls(cum)}"),
-        ]))
+        rows.append(
+            (
+                "",
+                [
+                    _cell(r["When"].strftime("%Y-%m-%d %H:%M")),
+                    _cell(str(int(r["Rounds"])), "r"),
+                    _cell(money(r["Card Value"]), "r muted"),
+                    _cell(money(net), f"r {_amt_cls(net)}"),
+                    _cell(money(cum), f"r {_amt_cls(cum)}"),
+                ],
+            )
+        )
     return _nice_table(headers, rows)
 
 
 # ============== Navigation ==============
+
 
 def goto(page: str, game_id: str | None = None):
     st.session_state.page = page
@@ -305,11 +339,10 @@ def _top_bar(title: str):
 
 # ============== Game session helpers ==============
 
+
 def load_game_into_session(game_id: str, snap: dict):
     st.session_state.tracker = CardGameTracker.from_snapshot(snap["tracker"])
-    st.session_state.round_num = snap.get(
-        "round_num", st.session_state.tracker.rounds_played + 1
-    )
+    st.session_state.round_num = snap.get("round_num", st.session_state.tracker.rounds_played + 1)
     st.session_state.game_id = game_id
     st.session_state.game_finished = False
     st.session_state.undo_stack = []
@@ -379,20 +412,32 @@ def rules_editor(prefix: str, initial: GameRules) -> GameRules:
     card_value = r1c1.number_input(
         "Value per card ($)", min_value=0.0, step=0.05, format="%.2f", key=k("cv")
     )
-    base_cards = int(r1c2.number_input(
-        "Base cards to winner", min_value=0, max_value=20, step=1, key=k("base")
-    ))
+    base_cards = int(
+        r1c2.number_input("Base cards to winner", min_value=0, max_value=20, step=1, key=k("base"))
+    )
 
     multipliers_enabled = st.toggle("Double / triple penalties", key=k("mult"))
     mcol1, mcol2 = st.columns(2)
-    double_threshold = int(mcol1.number_input(
-        "×2 at ≥", min_value=1, max_value=52, step=1,
-        disabled=not multipliers_enabled, key=k("dbl"),
-    ))
-    triple_threshold = int(mcol2.number_input(
-        "×3 at ≥", min_value=1, max_value=52, step=1,
-        disabled=not multipliers_enabled, key=k("trp"),
-    ))
+    double_threshold = int(
+        mcol1.number_input(
+            "×2 at ≥",
+            min_value=1,
+            max_value=52,
+            step=1,
+            disabled=not multipliers_enabled,
+            key=k("dbl"),
+        )
+    )
+    triple_threshold = int(
+        mcol2.number_input(
+            "×3 at ≥",
+            min_value=1,
+            max_value=52,
+            step=1,
+            disabled=not multipliers_enabled,
+            key=k("trp"),
+        )
+    )
     if multipliers_enabled and triple_threshold < double_threshold:
         st.warning("×3 threshold is below the ×2 threshold.")
 
@@ -401,10 +446,16 @@ def rules_editor(prefix: str, initial: GameRules) -> GameRules:
     scol1, scol2 = st.columns(2, vertical_alignment="bottom")
     with scol1:
         special_hands_enabled = st.toggle("Special hands", key=k("spec"))
-    special_hand_cards = int(scol2.number_input(
-        "Cards per special hand", min_value=1, max_value=20, step=1,
-        disabled=not special_hands_enabled, key=k("specn"),
-    ))
+    special_hand_cards = int(
+        scol2.number_input(
+            "Cards per special hand",
+            min_value=1,
+            max_value=20,
+            step=1,
+            disabled=not special_hands_enabled,
+            key=k("specn"),
+        )
+    )
 
     return GameRules(
         card_value=card_value,
@@ -419,6 +470,7 @@ def rules_editor(prefix: str, initial: GameRules) -> GameRules:
 
 
 # ============== Shared widgets ==============
+
 
 def _render_standings(balances: dict):
     standings = sorted(balances.items(), key=lambda x: x[1], reverse=True)
@@ -451,13 +503,15 @@ def _transfers_df(transfers: list[dict]) -> pd.DataFrame:
     rows = []
     for t in transfers:
         cards = f"{t['cards']} × {t['mult']}" if t.get("mult", 1) > 1 else f"{t['cards']}"
-        rows.append({
-            "From": t["from"],
-            "To": t["to"],
-            "Type": _KIND_LABEL.get(t["kind"], t["kind"]),
-            "Cards": cards,
-            "Amount": t["amount"],
-        })
+        rows.append(
+            {
+                "From": t["from"],
+                "To": t["to"],
+                "Type": _KIND_LABEL.get(t["kind"], t["kind"]),
+                "Cards": cards,
+                "Amount": t["amount"],
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -467,7 +521,36 @@ def _game_line(tracker_snap: dict) -> str:
     return f"**{', '.join(players)}** — {rounds} round{'s' if rounds != 1 else ''} played"
 
 
+# ============== Passcode gate ==============
+
+
+def render_passcode(expected: str):
+    """Shared-PIN gate shown before any page when APP_PASSCODE is configured."""
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
+        st.markdown(
+            '<div class="home-hero">'
+            + _LOGO_SVG.replace("\n", " ")
+            + '<div class="title">TAIDI</div><div class="tag">TRACKER</div></div>',
+            unsafe_allow_html=True,
+        )
+        with st.form("passcode_form"):
+            entered = st.text_input(
+                "Passcode",
+                type="password",
+                key="passcode_input",
+                label_visibility="collapsed",
+                placeholder="Passcode",
+            )
+            if st.form_submit_button("Enter", type="primary", width="stretch"):
+                if entered == expected:
+                    st.session_state.authed = True
+                    st.rerun()
+                st.error("Wrong passcode.")
+
+
 # ============== Page: Home ==============
+
 
 def render_home():
     hero = (
@@ -494,6 +577,7 @@ def render_home():
 
 # ============== Page: New Game ==============
 
+
 def _ng_apply_ruleset():
     name = st.session_state.get("ng_ruleset")
     rulesets = db.rulesets_all()
@@ -512,25 +596,31 @@ def render_new_game():
     else:
         container = st.container(height=170, border=False) if len(names) > 16 else st.container()
         with container:
-            selected = st.pills(
-                "Players", options=names, selection_mode="multi",
-                key="ng_player_pills", label_visibility="collapsed",
-            ) or []
+            selected = (
+                st.pills(
+                    "Players",
+                    options=names,
+                    selection_mode="multi",
+                    key="ng_player_pills",
+                    label_visibility="collapsed",
+                )
+                or []
+            )
 
     st.markdown("##### Rules")
     rulesets = db.rulesets_all()
     if rulesets:
         st.selectbox(
-            "Ruleset", options=["Custom"] + list(rulesets.keys()),
-            key="ng_ruleset", on_change=_ng_apply_ruleset,
+            "Ruleset",
+            options=["Custom"] + list(rulesets.keys()),
+            key="ng_ruleset",
+            on_change=_ng_apply_ruleset,
         )
     saved = GameRules.from_dict(db.settings_get("default_rules"))
     rules = rules_editor("ng", saved)
 
     rcol1, rcol2 = st.columns([3, 1], vertical_alignment="bottom")
-    ruleset_name = rcol1.text_input(
-        "Save as ruleset", key="ng_rs_name", placeholder="Ruleset name"
-    )
+    ruleset_name = rcol1.text_input("Save as ruleset", key="ng_rs_name", placeholder="Ruleset name")
     if rcol2.button("Save", key="ng_rs_save", width="stretch"):
         clean = ruleset_name.strip()
         if clean:
@@ -551,15 +641,19 @@ def render_new_game():
             st.session_state.game_id = game_id
             st.session_state.game_finished = False
             st.session_state.undo_stack = []
-            db.game_save(game_id, {
-                "tracker": st.session_state.tracker.to_snapshot(),
-                "round_num": 1,
-            })
+            db.game_save(
+                game_id,
+                {
+                    "tracker": st.session_state.tracker.to_snapshot(),
+                    "round_num": 1,
+                },
+            )
             db.settings_set("default_rules", rules.to_dict())
             goto("play", game_id)
 
 
 # ============== Page: Play (the active game) ==============
+
 
 def render_play():
     if "tracker" not in st.session_state:
@@ -580,8 +674,11 @@ def render_play():
         if tracker.rounds_played > 0:
             with st.expander("Earnings by round"):
                 _render_round_earnings(
-                    tracker.history, tracker.players, tracker.balances,
-                    [r["winner"] for r in tracker.tx_log], key="earn_view_done",
+                    tracker.history,
+                    tracker.players,
+                    tracker.balances,
+                    [r["winner"] for r in tracker.tx_log],
+                    key="earn_view_done",
                 )
         if st.button("Back to home", type="primary", key="finished_home"):
             _clear_game_session()
@@ -596,20 +693,32 @@ def render_play():
         cols = st.columns(len(tracker.players))
         card_counts = []
         for i, player in enumerate(tracker.players):
-            card_counts.append(int(cols[i].number_input(
-                player, min_value=0, max_value=52, step=1,
-                key=f"cards_{gid8}_{player}_{round_num}",
-            )))
+            card_counts.append(
+                int(
+                    cols[i].number_input(
+                        player,
+                        min_value=0,
+                        max_value=52,
+                        step=1,
+                        key=f"cards_{gid8}_{player}_{round_num}",
+                    )
+                )
+            )
 
         special_counts: dict[str, int] = {}
         if rules.special_hands_enabled:
             st.markdown("**Special hands**")
             cols_s = st.columns(len(tracker.players))
             for i, player in enumerate(tracker.players):
-                special_counts[player] = int(cols_s[i].number_input(
-                    player, min_value=0, max_value=10, step=1,
-                    key=f"special_{gid8}_{player}_{round_num}",
-                ))
+                special_counts[player] = int(
+                    cols_s[i].number_input(
+                        player,
+                        min_value=0,
+                        max_value=10,
+                        step=1,
+                        key=f"special_{gid8}_{player}_{round_num}",
+                    )
+                )
 
         submitted = st.form_submit_button("Submit round", type="primary", width="stretch")
 
@@ -641,7 +750,8 @@ def render_play():
             with st.expander(f"{last['round']}: **{last['winner']}** won — payout breakdown"):
                 st.dataframe(
                     _transfers_df(last["transfers"]).style.format({"Amount": money}),
-                    width="stretch", hide_index=True,
+                    width="stretch",
+                    hide_index=True,
                 )
         if st.session_state.get("undo_stack"):
             if bcol2.button("Undo round", key="undo_btn", width="stretch"):
@@ -657,8 +767,11 @@ def render_play():
     if tracker.rounds_played > 0:
         st.markdown("#### Earnings by round")
         _render_round_earnings(
-            tracker.history, tracker.players, tracker.balances,
-            [r["winner"] for r in tracker.tx_log], key="earn_view",
+            tracker.history,
+            tracker.players,
+            tracker.balances,
+            [r["winner"] for r in tracker.tx_log],
+            key="earn_view",
         )
 
         st.markdown("---")
@@ -689,6 +802,7 @@ def _finish_game():
 
 # ============== Page: Continue Game ==============
 
+
 def render_continue():
     _top_bar("Continue Game")
 
@@ -712,6 +826,7 @@ def render_continue():
 
 # ============== Page: Analytics ==============
 
+
 def render_analytics():
     _top_bar("Analytics")
 
@@ -725,14 +840,22 @@ def render_analytics():
     top = stats.iloc[0]
     bottom = stats.iloc[-1]
 
-    _stat_cards([
-        ("Games recorded", str(len(archive)), ""),
-        ("Rounds played", str(total_rounds), ""),
-        ("Top earner", _esc(str(top["Player"])),
-         f'<span class="amt-pos">{money(top["Total"])}</span>'),
-        ("Deepest pockets", _esc(str(bottom["Player"])),
-         f'<span class="{_amt_cls(float(bottom["Total"]))}">{money(bottom["Total"])}</span>'),
-    ])
+    _stat_cards(
+        [
+            ("Games recorded", str(len(archive)), ""),
+            ("Rounds played", str(total_rounds), ""),
+            (
+                "Top earner",
+                _esc(str(top["Player"])),
+                f'<span class="amt-pos">{money(top["Total"])}</span>',
+            ),
+            (
+                "Deepest pockets",
+                _esc(str(bottom["Player"])),
+                f'<span class="{_amt_cls(float(bottom["Total"]))}">{money(bottom["Total"])}</span>',
+            ),
+        ]
+    )
 
     st.markdown("##### Leaderboard")
     _render_leaderboard(stats)
@@ -747,12 +870,14 @@ def render_analytics():
     winrate = wins / games * 100.0 if games else 0.0
     avg = total / games if games else 0.0
 
-    _stat_cards([
-        ("Profit / Loss", f'<span class="{_amt_cls(total)}">{money(total)}</span>', ""),
-        ("Win rate", f"{winrate:.0f}%", ""),
-        ("Games", str(games), ""),
-        ("Avg / game", f'<span class="{_amt_cls(avg)}">{money(avg)}</span>', ""),
-    ])
+    _stat_cards(
+        [
+            ("Profit / Loss", f'<span class="{_amt_cls(total)}">{money(total)}</span>', ""),
+            ("Win rate", f"{winrate:.0f}%", ""),
+            ("Games", str(games), ""),
+            ("Avg / game", f'<span class="{_amt_cls(avg)}">{money(avg)}</span>', ""),
+        ]
+    )
 
     if games:
         trend = hist.copy()
@@ -765,6 +890,7 @@ def render_analytics():
 
 
 # ============== Page: Settings ==============
+
 
 def render_settings():
     _top_bar("Settings")
@@ -840,17 +966,37 @@ def _render_settings_players():
         for name in reg_names:
             if name in stats.index:
                 s = stats.loc[name]
-                rows.append({"Player": name, "Games": int(s["Games"]), "Total": float(s["Total"]),
-                             "Avg/Game": float(s["Avg/Game"]), "W": int(s["W"]), "L": int(s["L"]),
-                             "T": int(s["T"]), "Last Played": s["Last Played"]})
+                rows.append(
+                    {
+                        "Player": name,
+                        "Games": int(s["Games"]),
+                        "Total": float(s["Total"]),
+                        "Avg/Game": float(s["Avg/Game"]),
+                        "W": int(s["W"]),
+                        "L": int(s["L"]),
+                        "T": int(s["T"]),
+                        "Last Played": s["Last Played"],
+                    }
+                )
             else:
-                rows.append({"Player": name, "Games": 0, "Total": 0.0, "Avg/Game": 0.0,
-                             "W": 0, "L": 0, "T": 0, "Last Played": "-"})
+                rows.append(
+                    {
+                        "Player": name,
+                        "Games": 0,
+                        "Total": 0.0,
+                        "Avg/Game": 0.0,
+                        "W": 0,
+                        "L": 0,
+                        "T": 0,
+                        "Last Played": "-",
+                    }
+                )
         st.dataframe(
-            pd.DataFrame(rows).style
-            .format({"Total": money, "Avg/Game": money})
+            pd.DataFrame(rows)
+            .style.format({"Total": money, "Avg/Game": money})
             .map(_neg_red, subset=["Total", "Avg/Game"]),
-            width="stretch", hide_index=True,
+            width="stretch",
+            hide_index=True,
         )
 
 
@@ -874,7 +1020,10 @@ def _render_settings_games():
             new_balances = {}
             for i, (name, val) in enumerate(balances.items()):
                 new_balances[name] = bcols[i % len(bcols)].number_input(
-                    name, value=float(val), step=0.1, format="%.2f",
+                    name,
+                    value=float(val),
+                    step=0.1,
+                    format="%.2f",
                     key=f"bal_{gid[:8]}_{name}",
                 )
             drift = sum(new_balances.values())
@@ -926,7 +1075,10 @@ def _render_settings_games():
             new_totals = {}
             for i, (name, val) in enumerate(totals.items()):
                 new_totals[name] = tcols[i % len(tcols)].number_input(
-                    name, value=float(val), step=0.1, format="%.2f",
+                    name,
+                    value=float(val),
+                    step=0.1,
+                    format="%.2f",
                     key=f"tot_{aid[:8]}_{name}",
                 )
             drift = sum(new_totals.values())
@@ -943,7 +1095,8 @@ def _render_settings_games():
                 hdf = pd.DataFrame(data=hist["data"], index=hist["index"], columns=hist["columns"])
                 st.markdown(
                     _round_earnings_html(
-                        hdf, entry.get("players", list(hdf.index)),
+                        hdf,
+                        entry.get("players", list(hdf.index)),
                         entry.get("final_totals", {}),
                         [r.get("winner") for r in entry.get("tx_log", [])],
                     ),
@@ -967,6 +1120,30 @@ def _render_settings_games():
                 st.rerun()
 
     st.markdown("---")
+    with st.expander("Backup"):
+        st.download_button(
+            "Download backup (JSON)",
+            data=json.dumps(db.export_all(), indent=2),
+            file_name=f"taidi_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            key="backup_download",
+            width="stretch",
+        )
+        uploaded = st.file_uploader("Restore from backup", type=["json"], key="backup_upload")
+        confirm = st.checkbox("Replace ALL current data with this backup", key="backup_confirm")
+        if st.button("Restore", key="backup_restore", disabled=not (uploaded and confirm)):
+            try:
+                db.import_all(json.load(uploaded))
+            except (ValueError, KeyError, json.JSONDecodeError) as e:
+                st.error(f"Could not restore: {e}")
+            else:
+                for k in list(st.session_state.keys()):
+                    if k != "authed":
+                        del st.session_state[k]
+                st.toast("Backup restored")
+                st.rerun()
+
+    st.markdown("---")
     with st.expander("Danger zone"):
         dcol1, dcol2 = st.columns(2)
         if dcol1.button("Clear all finished games", key="dz_clear_arch", width="stretch"):
@@ -978,9 +1155,7 @@ def _render_settings_games():
             st.toast("Player registry cleared")
             st.rerun()
 
-        sure = st.checkbox(
-            "I understand this deletes ALL data", key="confirm_factory_reset"
-        )
+        sure = st.checkbox("I understand this deletes ALL data", key="confirm_factory_reset")
         if st.button("Full factory reset", type="primary", key="dz_factory", disabled=not sure):
             db.factory_reset()
             for k in list(st.session_state.keys()):
@@ -1000,9 +1175,7 @@ def _render_settings_rulesets():
         elif clean in db.rulesets_all():
             st.error(f"A ruleset named '{clean}' already exists.")
         else:
-            db.ruleset_save(
-                clean, GameRules.from_dict(db.settings_get("default_rules")).to_dict()
-            )
+            db.ruleset_save(clean, GameRules.from_dict(db.settings_get("default_rules")).to_dict())
             st.toast(f"Ruleset created: {clean}")
             st.rerun()
 

@@ -1,6 +1,6 @@
 """Game rules and scoring logic for Taidi Tracker."""
 
-from dataclasses import dataclass, asdict, fields
+from dataclasses import asdict, dataclass, fields
 
 import pandas as pd
 
@@ -9,14 +9,14 @@ import pandas as pd
 class GameRules:
     """Everything about how a game is scored. All of it configurable."""
 
-    card_value: float = 0.20          # $ per card
-    base_cards: int = 2               # flat cards' worth each loser pays the winner (no multiplier)
+    card_value: float = 0.20  # $ per card
+    base_cards: int = 2  # flat cards' worth each loser pays the winner (no multiplier)
     multipliers_enabled: bool = True  # double/triple penalty for being caught with many cards
-    double_threshold: int = 10        # payer cards >= this -> x2
-    triple_threshold: int = 13        # payer cards >= this -> x3
-    difference_payouts: bool = True   # losers also settle card-count differences among themselves
+    double_threshold: int = 10  # payer cards >= this -> x2
+    triple_threshold: int = 13  # payer cards >= this -> x3
+    difference_payouts: bool = True  # losers also settle card-count differences among themselves
     special_hands_enabled: bool = True
-    special_hand_cards: int = 5       # cards' worth each special hand collects from every other player
+    special_hand_cards: int = 5  # cards' worth each special hand collects from every other player
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -66,8 +66,8 @@ def compute_payouts(card_counts: dict, rules: GameRules):
     {"from", "to", "cards", "mult", "amount", "kind"}.
     """
     winners = [p for p, c in card_counts.items() if c == 0]
-    if not winners:
-        raise ValueError("No winner: exactly one player must end the round with 0 cards.")
+    if len(winners) != 1:
+        raise ValueError("Exactly one player must end the round with 0 cards.")
     winner = winners[0]
 
     remaining = sorted(
@@ -80,26 +80,44 @@ def compute_payouts(card_counts: dict, rules: GameRules):
         if payer_cards <= 0:
             continue
         m = rules.multiplier(payer_cards)
-        transfers.append({
-            "from": payer, "to": winner, "cards": payer_cards, "mult": m,
-            "amount": payer_cards * m * rules.card_value, "kind": "cards",
-        })
+        transfers.append(
+            {
+                "from": payer,
+                "to": winner,
+                "cards": payer_cards,
+                "mult": m,
+                "amount": payer_cards * m * rules.card_value,
+                "kind": "cards",
+            }
+        )
         if rules.difference_payouts:
             for j in range(i):
                 receiver, receiver_cards = remaining[j]
                 diff = payer_cards - receiver_cards
                 if diff > 0:
-                    transfers.append({
-                        "from": payer, "to": receiver, "cards": diff, "mult": m,
-                        "amount": diff * m * rules.card_value, "kind": "difference",
-                    })
+                    transfers.append(
+                        {
+                            "from": payer,
+                            "to": receiver,
+                            "cards": diff,
+                            "mult": m,
+                            "amount": diff * m * rules.card_value,
+                            "kind": "difference",
+                        }
+                    )
 
     if rules.base_cards > 0:
         for payer, _ in remaining:
-            transfers.append({
-                "from": payer, "to": winner, "cards": rules.base_cards, "mult": 1,
-                "amount": rules.base_cards * rules.card_value, "kind": "base",
-            })
+            transfers.append(
+                {
+                    "from": payer,
+                    "to": winner,
+                    "cards": rules.base_cards,
+                    "mult": 1,
+                    "amount": rules.base_cards * rules.card_value,
+                    "kind": "base",
+                }
+            )
 
     return transfers, winner
 
@@ -114,9 +132,11 @@ class CardGameTracker:
 
     def play_round(self, card_counts_list, round_name=None, special_hand_counts=None) -> dict:
         if len(card_counts_list) != len(self.players):
-            raise ValueError(f"Expected {len(self.players)} card counts, got {len(card_counts_list)}")
+            raise ValueError(
+                f"Expected {len(self.players)} card counts, got {len(card_counts_list)}"
+            )
 
-        card_counts = dict(zip(self.players, card_counts_list))
+        card_counts = dict(zip(self.players, card_counts_list, strict=True))
         round_name = round_name or f"Round {self.history.shape[1] + 1}"
 
         transfers, winner = compute_payouts(card_counts, self.rules)
@@ -127,11 +147,16 @@ class CardGameTracker:
                     cards = self.rules.special_hand_cards * count
                     for player in self.players:
                         if player != special_player:
-                            transfers.append({
-                                "from": player, "to": special_player, "cards": cards,
-                                "mult": 1, "amount": cards * self.rules.card_value,
-                                "kind": "special",
-                            })
+                            transfers.append(
+                                {
+                                    "from": player,
+                                    "to": special_player,
+                                    "cards": cards,
+                                    "mult": 1,
+                                    "amount": cards * self.rules.card_value,
+                                    "kind": "special",
+                                }
+                            )
 
         for t in transfers:
             self.balances[t["from"]] -= t["amount"]
@@ -175,12 +200,15 @@ class CardGameTracker:
 
 # ============== Lifetime stats (always derived from the archive) ==============
 
+
 def player_stats_df(archive: list[dict]) -> pd.DataFrame:
     """Lifetime stats per player, computed fresh from archived games."""
     stats: dict[str, dict] = {}
     for entry in archive:
         for name, net in entry.get("final_totals", {}).items():
-            s = stats.setdefault(name, {"games": 0, "total": 0.0, "wins": 0, "losses": 0, "ties": 0, "last": ""})
+            s = stats.setdefault(
+                name, {"games": 0, "total": 0.0, "wins": 0, "losses": 0, "ties": 0, "last": ""}
+            )
             s["games"] += 1
             s["total"] += float(net)
             if net > 0:
@@ -192,7 +220,9 @@ def player_stats_df(archive: list[dict]) -> pd.DataFrame:
             s["last"] = max(s["last"], entry.get("created_at", ""))
 
     if not stats:
-        return pd.DataFrame(columns=["Player", "Games", "Total", "Avg/Game", "W", "L", "T", "Last Played"])
+        return pd.DataFrame(
+            columns=["Player", "Games", "Total", "Avg/Game", "W", "L", "T", "Last Played"]
+        )
 
     rows = [
         {
@@ -207,7 +237,11 @@ def player_stats_df(archive: list[dict]) -> pd.DataFrame:
         }
         for name, s in stats.items()
     ]
-    return pd.DataFrame(rows).sort_values(["Total", "Games"], ascending=[False, False]).reset_index(drop=True)
+    return (
+        pd.DataFrame(rows)
+        .sort_values(["Total", "Games"], ascending=[False, False])
+        .reset_index(drop=True)
+    )
 
 
 def player_history_df(archive: list[dict], player_name: str) -> pd.DataFrame:
@@ -217,12 +251,14 @@ def player_history_df(archive: list[dict], player_name: str) -> pd.DataFrame:
         totals = entry.get("final_totals", {})
         if player_name in totals:
             rules = GameRules.from_dict(entry.get("rules"))
-            rows.append({
-                "When": entry.get("created_at", ""),
-                "Rounds": entry.get("rounds_played", 0),
-                "Card Value": rules.card_value,
-                "Net": float(totals[player_name]),
-            })
+            rows.append(
+                {
+                    "When": entry.get("created_at", ""),
+                    "Rounds": entry.get("rounds_played", 0),
+                    "Card Value": rules.card_value,
+                    "Net": float(totals[player_name]),
+                }
+            )
     if not rows:
         return pd.DataFrame(columns=["When", "Rounds", "Card Value", "Net"])
     return pd.DataFrame(rows).sort_values("When", ascending=False).reset_index(drop=True)
