@@ -42,3 +42,58 @@ jobs:
           python -m alembic upgrade head
           python -m alembic downgrade base
           python -m alembic upgrade head
+
+  web:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: taidi
+          POSTGRES_PASSWORD: taidi_dev
+          POSTGRES_DB: taidi
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U taidi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Migrate the database
+        working-directory: api
+        run: alembic upgrade head
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+      - name: Lint and typecheck
+        working-directory: web
+        run: |
+          npm run lint
+          npx tsc --noEmit
+      - name: Build
+        working-directory: web
+        run: npm run build
+      - name: Install Playwright browsers
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        working-directory: web
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7

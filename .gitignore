@@ -19,5 +19,10 @@ __pycache__/
 node_modules/
 .next/
 
+# Playwright
+web/test-results/
+web/playwright-report/
+web/blob-report/
+
 # macOS
 .DS_Store

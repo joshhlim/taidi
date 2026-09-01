@@ -4,11 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] - 2026-09-01
 
-Phase 2 (in progress): the first live-room vertical slice. This entry covers
-the backend half; the Next.js frontend and the two-device end-to-end proof
-are still to come before this is tagged.
+Phase 2: the first live-room vertical slice, end to end — a room where
+every player acts from their own device, proven by a Playwright test that
+drives three separate browser contexts through a full game with no shared
+page and no manual refresh.
 
 ### Added
 - `api/`: a FastAPI backend wrapping `taidi_core` as the sole write path to
@@ -25,12 +26,32 @@ are still to come before this is tagged.
   migrations targeting `TAIDI_DATABASE_URL` directly.
 - `docker-compose.yml`: an isolated local Postgres (project `taidi`, port
   5433) — no cloud account needed for local development.
-- 9 integration tests against a real (throwaway) Postgres database,
-  including a genuine concurrency test using `asyncio.gather` against real
-  HTTP requests. `mypy --strict` clean; CI now runs a Postgres service and
-  an Alembic upgrade/downgrade/upgrade round-trip on every push.
+- `web/`: a Next.js PWA — dev sign-in, new room / join by code, a lobby
+  that converges as players join, and a live table (Win, per-player card
+  entry, special hands settling immediately, end game), all driven by
+  polling `GET /rooms/{id}/state` as a deliberate, swappable stand-in for
+  Supabase Realtime (ADR-0004).
+- `e2e/full-game.spec.ts`: three independent browser contexts play a full
+  game through the real UI against the real API and a real database —
+  the actual proof of this phase's "two phones" bar.
+- 10 API integration tests (real Postgres, incl. a concurrency test with
+  `asyncio.gather` against real HTTP requests) + the e2e suite. `mypy
+  --strict` clean on both Python packages; CI runs a Postgres service, an
+  Alembic upgrade/downgrade/upgrade round-trip, and the full Playwright
+  suite on every push.
 - `core/taidi_core` is now PEP 561 typed (`py.typed`) so consuming packages'
   `mypy --strict` runs pick up its inline types automatically.
+
+### Fixed
+- A command's own 409 conflict was being treated as failure, discarding
+  the player's in-flight action (e.g. their card count) even when it had
+  nothing to do with the conflict. Every command now retries once against
+  the fresh state before surfacing an error — caught by the three-device
+  Playwright test, which failed until this was in place.
+- (backend, before release) `_as_json`'s own body was accidentally
+  overwritten into a call to itself during a find-and-replace, causing
+  infinite recursion on every response; caught immediately by the existing
+  test suite.
 
 ## [0.2.0] - 2026-09-01
 

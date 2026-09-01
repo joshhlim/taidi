@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str | None = None
     access_token_ttl_minutes: int = 60 * 24 * 7  # a week — fine for a party-game app
 
-    cors_origins: list[str] = ["http://localhost:3000"]
+    # :3000 is Next.js's default; :3100 is what this repo's local dev
+    # and Playwright config use instead, since :3000 is often already
+    # taken by an unrelated project on a shared dev machine.
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3100"]
 
 
 settings = Settings()

@@ -198,3 +198,25 @@ async def test_concurrent_card_submissions_do_not_corrupt_state(make_device):
         assert r.status_code == 200, r.text
         final = r.json()
     assert final["rounds"][0]["phase"] == "resolved"
+
+
+async def test_invite_code_present_on_every_response_not_just_create(make_device):
+    """Regression: invite_code must be visible to any member at any time, not
+    just in the create-room response — the frontend lobby reads it from
+    whichever response it last received."""
+    alice = await make_device("Alice")
+    bob = await make_device("Bob")
+    room_id, invite_code = await _create_room(alice)
+
+    r = await alice.get(f"/rooms/{room_id}/state")
+    assert r.json()["invite_code"] == invite_code
+
+    await bob.get(f"/rooms/by-code/{invite_code}")
+    r = await bob.post(f"/rooms/{room_id}/join")
+    assert r.json()["invite_code"] == invite_code
+
+    state = (await alice.get(f"/rooms/{room_id}/state")).json()
+    r = await alice.post(
+        f"/rooms/{room_id}/start", json={"expected_seq": state["seq"], "rules": {}}
+    )
+    assert r.json()["invite_code"] == invite_code

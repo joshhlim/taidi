@@ -1,0 +1,128 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { api, ApiError } from "@/lib/api";
+import { devLogin, getStoredAuth, type CurrentUser } from "@/lib/auth";
+
+export default function HomePage() {
+  const router = useRouter();
+  const [user, setUser] = useState<CurrentUser | null>(() => getStoredAuth()?.user ?? null);
+  const [nameInput, setNameInput] = useState("");
+  const [codeInput, setCodeInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    const name = nameInput.trim();
+    if (!name) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const auth = await devLogin(name);
+      setUser(auth.user);
+    } catch {
+      setError("Couldn't sign in. Is the API running?");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCreateRoom() {
+    setBusy(true);
+    setError(null);
+    try {
+      const room = await api.createRoom();
+      router.push(`/room/${room.room_id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't create a room.");
+      setBusy(false);
+    }
+  }
+
+  async function handleJoinRoom(e: React.FormEvent) {
+    e.preventDefault();
+    const code = codeInput.trim().toUpperCase();
+    if (!code) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { room_id } = await api.byCode(code);
+      router.push(`/room/${room_id}`); // the room page itself handles joining
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't find that room.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="flex-1 flex items-center justify-center px-6 py-12">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-10">
+          <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-brand flex items-center justify-center">
+            <span className="text-gold font-serif text-2xl font-bold">2</span>
+          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-brand">TAIDI</h1>
+        </div>
+
+        {!user ? (
+          <form onSubmit={handleLogin} className="space-y-3">
+            <input
+              className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-brand-strong"
+              data-testid="display-name-input"
+              placeholder="Your name"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={busy || !nameInput.trim()}
+              data-testid="continue-btn"
+              className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Continue
+            </button>
+          </form>
+        ) : (
+          <div className="space-y-6">
+            <p className="text-center text-sm text-muted">
+              Signed in as <span className="font-semibold text-foreground">{user.display_name}</span>
+            </p>
+
+            <button
+              onClick={handleCreateRoom}
+              disabled={busy}
+              data-testid="new-room-btn"
+              className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              New Room
+            </button>
+
+            <form onSubmit={handleJoinRoom} className="space-y-3">
+              <input
+                className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-center tracking-widest uppercase outline-none focus:border-brand-strong"
+                data-testid="room-code-input"
+                placeholder="Room code"
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value)}
+                maxLength={6}
+              />
+              <button
+                type="submit"
+                disabled={busy || !codeInput.trim()}
+                data-testid="join-room-btn"
+                className="w-full rounded-xl border border-border py-3 text-sm font-semibold text-brand disabled:opacity-50"
+              >
+                Join Room
+              </button>
+            </form>
+          </div>
+        )}
+
+        {error && <p className="mt-4 text-center text-sm text-danger">{error}</p>}
+      </div>
+    </main>
+  );
+}

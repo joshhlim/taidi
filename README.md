@@ -58,11 +58,14 @@ where every player acts from their own phone. See
 and [docs/adr/0002-pure-python-core-integer-cents.md](docs/adr/0002-pure-python-core-integer-cents.md)
 for the design, and `CHANGELOG.md` for progress.
 
-`core/taidi_core` is the new domain package implementing that design, and
-`api/` is a FastAPI backend built on it — neither is wired into the deployed
-app yet (see `db.py`/`ui.py` below for what actually runs in production
-today). Run the new stack locally with `docker compose up -d postgres` and
-see [api/README.md](api/README.md).
+`core/taidi_core` is the new domain package implementing that design,
+`api/` is a FastAPI backend built on it, and `web/` is the Next.js PWA
+frontend — none of it is wired into the deployed app yet (see `db.py`/
+`ui.py` below for what actually runs in production today). The full slice
+runs locally: `docker compose up -d postgres`, then see
+[api/README.md](api/README.md) and [web/README.md](web/README.md).
+`web/e2e/full-game.spec.ts` drives three browser contexts through a full
+game as the end-to-end proof.
 
 ## Structure
 
@@ -101,3 +104,15 @@ ADR-0003. `docker-compose.yml` at the repo root runs a local Postgres for it.
 | `app/events_store.py` | Persistence + folding the event log back into a `RoomState` |
 | `app/routers/rooms.py` | The room command endpoints |
 | `alembic/` | Migrations |
+
+### `web/` — Next.js PWA frontend
+
+See [web/README.md](web/README.md) and ADR-0004.
+
+| Path | Purpose |
+| --- | --- |
+| `src/app/page.tsx` | Home: sign-in, new room, join by code |
+| `src/app/room/[roomId]/page.tsx` | Lobby, live table, ended-game views |
+| `src/lib/api.ts` | Typed fetch client; auto-retries a command once on 409 |
+| `src/lib/usePolling.ts` | Stands in for Supabase Realtime for now |
+| `e2e/full-game.spec.ts` | Three-device end-to-end proof |
