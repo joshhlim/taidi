@@ -77,12 +77,10 @@ jobs:
       - name: Install web dependencies
         working-directory: web
         run: npm ci
-      - name: Lint and typecheck
+      - name: Lint
         working-directory: web
-        run: |
-          npm run lint
-          npx tsc --noEmit
-      - name: Build
+        run: npm run lint
+      - name: Build (also typechecks)
         working-directory: web
         run: npm run build
       - name: Install Playwright browsers

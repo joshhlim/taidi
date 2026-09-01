@@ -29,8 +29,11 @@ Port 3100 (not Next.js's default 3000) is just this repo's convention —
 
 ```bash
 npm run lint
-npx tsc --noEmit
-npx playwright test         # drives 3 browser contexts through a full game
+npm run build                # also typechecks — Next.js generates route
+                              # types (e.g. LayoutProps) during build/dev,
+                              # so a bare `tsc --noEmit` fails on a fresh
+                              # checkout that hasn't built yet
+npx playwright test          # drives 3 browser contexts through a full game
 ```
 
 `playwright.config.ts` starts both the API (`:8000`) and the web app
