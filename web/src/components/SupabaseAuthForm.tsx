@@ -59,8 +59,11 @@ export default function SupabaseAuthForm({ onSignedIn }: { onSignedIn: (user: Cu
       } else {
         // "Confirm email" is enabled on the project — account exists but
         // needs the confirmation link clicked before it can sign in.
-        setNotice("Account created — check your email to confirm it, then log in.");
+        // switchView clears `notice`, so it must run first or this message
+        // never shows (both setNotice calls land in the same React batch,
+        // and the later one wins).
         switchView("login");
+        setNotice("Account created — check your email to confirm it, then log in.");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't create an account.");
