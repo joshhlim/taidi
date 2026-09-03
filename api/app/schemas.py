@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
+from mahjong_core.models import MahjongRules
 from pydantic import BaseModel
 from taidi_core.models import GameRules
 
@@ -37,3 +38,31 @@ class SubmitForRequest(BaseModel):
     expected_seq: int
     target_player: UUID
     cards: int
+
+
+class AssignSeatsRequest(BaseModel):
+    expected_seq: int
+    seat_map: dict[UUID, int]
+
+
+class StartMahjongRequest(BaseModel):
+    expected_seq: int
+    rules: MahjongRules = MahjongRules()
+
+
+class DeclareYaoRequest(BaseModel):
+    expected_seq: int
+    target_seat: int
+    an: bool = False
+
+
+class DeclareGangRequest(BaseModel):
+    expected_seq: int
+    target: int | Literal["angang"]
+
+
+class DeclareHuRequest(BaseModel):
+    expected_seq: int
+    mode: Literal["direct", "zimo", "bao"]
+    target_seat: int | None = None
+    tai: int

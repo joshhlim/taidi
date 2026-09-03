@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.4] - 2026-09-03
+
+Mahjong's API layer (Phase D of the leave/disband + Mahjong plan). Still no
+user-visible change — the web app doesn't call any of this yet.
+
+### Added
+- `POST /rooms/{id}/mahjong/{join,leave,disband,assign-seats,start,yao,gang,
+  hu,no-win,continue-wind,end}` — full HTTP surface for `mahjong_core`,
+  mirroring the existing Taidi endpoints' `_dispatch` pattern exactly.
+- Every Mahjong action endpoint rejects a Taidi room (400), and every Taidi
+  action endpoint now rejects a Mahjong room (400) — previously untested
+  since Mahjong rooms didn't exist yet.
+- 11 new integration tests against a real Postgres database covering the
+  full settlement math end to end over HTTP, seat assignment, host-only
+  end/assign-seats, leave/disband, and the final-hand pending-wind-decision
+  → continue-wind flow.
+
 ## [0.4.3] - 2026-09-03
 
 Mahjong's pure scoring/state engine (ADR-0006) — still no user-visible

@@ -1,5 +1,13 @@
 """Persistence for rooms and their event logs, and the fold that turns them
-back into a taidi_core RoomState."""
+back into a RoomState — either taidi_core's or mahjong_core's, depending on
+the room's stored game_type (see ADR-0006).
+
+The generic endpoints (create, get-state, by-code) work with either type via
+AnyRoomState. Each game's router narrows to its own concrete type via
+rebuild_taidi_state_with_invite / rebuild_mahjong_state_with_invite, which
+raise WrongGameType for a mismatch — e.g. calling a Mahjong action endpoint
+against a room created as Taidi.
+"""
 
 from __future__ import annotations
 
@@ -8,14 +16,22 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from mahjong_core import machine as mahjong_machine
+from mahjong_core.models import Event as MahjongEvent
+from mahjong_core.models import EventType as MahjongEventType
+from mahjong_core.models import RoomState as MahjongRoomState
 from sqlalchemy import insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from taidi_core import machine
-from taidi_core.models import Event, EventType, RoomState
+from taidi_core import machine as taidi_machine
+from taidi_core.models import Event as TaidiEvent
+from taidi_core.models import EventType as TaidiEventType
+from taidi_core.models import RoomState as TaidiRoomState
 
 from .db import events as events_table
 from .db import rooms as rooms_table
+
+AnyRoomState = TaidiRoomState | MahjongRoomState
 
 _INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I — easy to read aloud
 
@@ -28,6 +44,16 @@ class RoomNotFound(Exception):
     pass
 
 
+class WrongGameType(Exception):
+    """Raised when an endpoint scoped to one game (taidi/mahjong) is called
+    against a room created as the other."""
+
+    def __init__(self, actual: str, expected: str):
+        self.actual = actual
+        self.expected = expected
+        super().__init__(f"This room is a {actual} room, not {expected}.")
+
+
 async def create_room(
     session: AsyncSession,
     *,
@@ -36,7 +62,7 @@ async def create_room(
     host_display_name: str,
     now: datetime,
     game_type: str = "taidi",
-) -> tuple[RoomState, str, str]:
+) -> tuple[AnyRoomState, str, str]:
     invite_code = generate_invite_code()
     await session.execute(
         insert(rooms_table).values(
@@ -49,10 +75,15 @@ async def create_room(
         )
     )
     await session.commit()
-    state = RoomState.new(
+    if game_type == "mahjong":
+        mahjong_state = MahjongRoomState.new(
+            room_id=room_id, host_id=host_id, host_display_name=host_display_name, now=now
+        )
+        return mahjong_state, invite_code, game_type
+    taidi_state = TaidiRoomState.new(
         room_id=room_id, host_id=host_id, host_display_name=host_display_name, now=now
     )
-    return state, invite_code, game_type
+    return taidi_state, invite_code, game_type
 
 
 async def resolve_invite_code(session: AsyncSession, invite_code: str) -> UUID | None:
@@ -73,16 +104,16 @@ async def _load_room_seed(session: AsyncSession, room_id: UUID) -> Any:
     return row
 
 
-async def load_events(session: AsyncSession, room_id: UUID) -> list[Event]:
+async def _load_taidi_events(session: AsyncSession, room_id: UUID) -> list[TaidiEvent]:
     rows = await session.execute(
         select(events_table).where(events_table.c.room_id == room_id).order_by(events_table.c.seq)
     )
     return [
-        Event(
+        TaidiEvent(
             event_id=r.id,
             room_id=r.room_id,
             seq=r.seq,
-            type=EventType(r.type),
+            type=TaidiEventType(r.type),
             actor=r.actor,
             payload=r.payload,
             created_at=r.created_at,
@@ -91,30 +122,80 @@ async def load_events(session: AsyncSession, room_id: UUID) -> list[Event]:
     ]
 
 
-async def rebuild_state(session: AsyncSession, room_id: UUID) -> RoomState:
+async def _load_mahjong_events(session: AsyncSession, room_id: UUID) -> list[MahjongEvent]:
+    rows = await session.execute(
+        select(events_table).where(events_table.c.room_id == room_id).order_by(events_table.c.seq)
+    )
+    return [
+        MahjongEvent(
+            event_id=r.id,
+            room_id=r.room_id,
+            seq=r.seq,
+            type=MahjongEventType(r.type),
+            actor=r.actor,
+            payload=r.payload,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
+async def rebuild_state(session: AsyncSession, room_id: UUID) -> AnyRoomState:
     state, _invite_code, _game_type = await rebuild_state_with_invite(session, room_id)
     return state
 
 
 async def rebuild_state_with_invite(
     session: AsyncSession, room_id: UUID
-) -> tuple[RoomState, str, str]:
-    """Like rebuild_state, but also returns the room's invite code and game
-    type — every member should be able to see/share the code, not just at
-    creation time, and the frontend needs game_type to know which UI to
-    render (see ADR-0006)."""
+) -> tuple[AnyRoomState, str, str]:
+    """Rebuilds whichever RoomState type matches the room's stored
+    game_type. Generic endpoints (get-state, create) use this directly;
+    each game's router narrows via rebuild_taidi_state_with_invite /
+    rebuild_mahjong_state_with_invite instead."""
     seed = await _load_room_seed(session, room_id)
-    state = RoomState.new(
+    if seed.game_type == "mahjong":
+        mahjong_state = MahjongRoomState.new(
+            room_id=seed.room_id,
+            host_id=seed.host_id,
+            host_display_name=seed.host_display_name,
+            now=seed.created_at,
+        )
+        mahjong_state = mahjong_machine.fold(
+            mahjong_state, await _load_mahjong_events(session, room_id)
+        )
+        return mahjong_state, seed.invite_code, seed.game_type
+
+    taidi_state = TaidiRoomState.new(
         room_id=seed.room_id,
         host_id=seed.host_id,
         host_display_name=seed.host_display_name,
         now=seed.created_at,
     )
-    state = machine.fold(state, await load_events(session, room_id))
-    return state, seed.invite_code, seed.game_type
+    taidi_state = taidi_machine.fold(taidi_state, await _load_taidi_events(session, room_id))
+    return taidi_state, seed.invite_code, seed.game_type
 
 
-async def append_events(session: AsyncSession, room_id: UUID, new_events: list[Event]) -> None:
+async def rebuild_taidi_state_with_invite(
+    session: AsyncSession, room_id: UUID
+) -> tuple[TaidiRoomState, str]:
+    state, invite_code, game_type = await rebuild_state_with_invite(session, room_id)
+    if not isinstance(state, TaidiRoomState):
+        raise WrongGameType(game_type, "taidi")
+    return state, invite_code
+
+
+async def rebuild_mahjong_state_with_invite(
+    session: AsyncSession, room_id: UUID
+) -> tuple[MahjongRoomState, str]:
+    state, invite_code, game_type = await rebuild_state_with_invite(session, room_id)
+    if not isinstance(state, MahjongRoomState):
+        raise WrongGameType(game_type, "mahjong")
+    return state, invite_code
+
+
+async def append_events(
+    session: AsyncSession, room_id: UUID, new_events: list[TaidiEvent] | list[MahjongEvent]
+) -> None:
     """Insert new events. Raises IntegrityError (unmapped) on a (room_id, seq)
     collision — the caller maps that to a 409 for the loser of a race."""
     if not new_events:
