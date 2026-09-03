@@ -1,7 +1,7 @@
 [project]
 name = "taidi-core"
 version = "0.1.0"
-description = "Pure Python domain core for Taidi: scoring engine and multiplayer room state machine"
+description = "Pure Python domain cores for GamBROle's games: scoring engines and multiplayer room state machines (taidi_core, mahjong_core)"
 requires-python = ">=3.12"
 dependencies = ["pydantic>=2.6"]
 
@@ -19,7 +19,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["taidi_core*"]
+include = ["taidi_core*", "mahjong_core*"]
 
 [tool.setuptools.package-data]
 taidi_core = ["py.typed"]
+mahjong_core = ["py.typed"]

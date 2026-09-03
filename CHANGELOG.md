@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.3] - 2026-09-03
+
+Mahjong's pure scoring/state engine (ADR-0006) — still no user-visible
+change, nothing wired into the API or web app yet. This is Phase C of the
+leave/disband + Mahjong plan: the engine gets built and fully tested
+standalone before any API or UI work starts, same as `taidi_core` was.
+
+### Added
+- `core/mahjong_core/`: event-sourced room/hand state machine for YAO, GANG,
+  and HU declarations, dealer/wind rotation (gang-rotates/no-gang-repeats,
+  with a win-only-closes rule on the last seat of the last wind), seat
+  assignment, and leave/disband — mirroring `taidi_core`'s shape, sharing
+  its genuinely game-agnostic pieces (`Member`, `Settlement`, `PlayerStats`,
+  the error hierarchy, `minimize_transfers`) rather than duplicating them.
+- 60 new tests: fixed-case settlement math for every YAO/GANG/HU/BAO
+  variant, Hypothesis invariants checking the settlement-table formulas
+  hold for randomized rule values, and dedicated coverage of the dealer/
+  wind state machine including the last-seat-of-last-wind edge case.
+
 ## [0.4.2] - 2026-09-03
 
 Groundwork for Mahjong as a second game type (ADR-0006) — no user-visible

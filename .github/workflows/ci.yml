@@ -32,6 +32,7 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy --config-file core/pyproject.toml core/taidi_core
+      - run: mypy --config-file core/pyproject.toml core/mahjong_core
       - run: mypy --config-file api/pyproject.toml api/app
       - run: pytest tests -q
       - run: pytest core/tests -q
