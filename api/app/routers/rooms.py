@@ -145,6 +145,38 @@ async def join(
     )
 
 
+@router.post("/{room_id}/leave")
+async def leave(
+    room_id: UUID,
+    body: SeqOnlyRequest,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    return await _dispatch(
+        session,
+        room_id,
+        lambda state: machine.leave_room(
+            state, expected_seq=body.expected_seq, actor=user.user_id, now=utcnow()
+        ),
+    )
+
+
+@router.post("/{room_id}/disband")
+async def disband(
+    room_id: UUID,
+    body: SeqOnlyRequest,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    return await _dispatch(
+        session,
+        room_id,
+        lambda state: machine.disband_room(
+            state, expected_seq=body.expected_seq, actor=user.user_id, now=utcnow()
+        ),
+    )
+
+
 @router.post("/{room_id}/start")
 async def start(
     room_id: UUID,

@@ -48,6 +48,12 @@ export default function RoomPage() {
   const me = user?.user_id;
   const isMember = !!(state && me && me in state.members);
 
+  useEffect(() => {
+    // The host disbanded the room while others were still in the lobby —
+    // everyone still viewing it gets bounced home on their next poll.
+    if (state?.status === "disbanded") router.replace("/");
+  }, [state?.status, router]);
+
   // Auto-join once: if we landed here via a shared link/code without having
   // joined yet, and the room is still in its lobby, join automatically.
   useEffect(() => {
@@ -134,6 +140,10 @@ export default function RoomPage() {
           onStart={() =>
             run((seq) => api.start(roomId, seq, readStoredRules(roomId))).then((r) => r && setData(r))
           }
+          onLeave={() => run((seq) => api.leave(roomId, seq)).then((r) => r && router.push("/"))}
+          onDisband={() =>
+            run((seq) => api.disband(roomId, seq)).then((r) => r && router.push("/"))
+          }
         />
       )}
 
@@ -183,6 +193,8 @@ function Lobby({
   busy,
   onJoin,
   onStart,
+  onLeave,
+  onDisband,
 }: {
   state: RoomState;
   isHost: boolean;
@@ -191,6 +203,8 @@ function Lobby({
   busy: boolean;
   onJoin: () => void;
   onStart: () => void;
+  onLeave: () => void;
+  onDisband: () => void;
 }) {
   return (
     <div className="space-y-6">
@@ -225,16 +239,36 @@ function Lobby({
           Join Room
         </button>
       ) : isHost ? (
-        <button
-          onClick={onStart}
-          disabled={busy || membersBySeat.length < 2}
-          data-testid="start-game-btn"
-          className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {membersBySeat.length < 2 ? "Waiting for more players…" : "Start Game"}
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={onStart}
+            disabled={busy || membersBySeat.length < 2}
+            data-testid="start-game-btn"
+            className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {membersBySeat.length < 2 ? "Waiting for more players…" : "Start Game"}
+          </button>
+          <button
+            onClick={onDisband}
+            disabled={busy}
+            data-testid="disband-room-btn"
+            className="w-full rounded-xl border border-border py-2.5 text-xs font-semibold text-muted disabled:opacity-50"
+          >
+            Disband Room
+          </button>
+        </div>
       ) : (
-        <p className="text-center text-sm text-muted">Waiting for the host to start…</p>
+        <div className="space-y-3">
+          <p className="text-center text-sm text-muted">Waiting for the host to start…</p>
+          <button
+            onClick={onLeave}
+            disabled={busy}
+            data-testid="leave-room-btn"
+            className="w-full rounded-xl border border-border py-2.5 text-xs font-semibold text-muted disabled:opacity-50"
+          >
+            Leave Room
+          </button>
+        </div>
       )}
     </div>
   );

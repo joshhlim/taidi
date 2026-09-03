@@ -220,3 +220,45 @@ async def test_invite_code_present_on_every_response_not_just_create(make_device
         f"/rooms/{room_id}/start", json={"expected_seq": state["seq"], "rules": {}}
     )
     assert r.json()["invite_code"] == invite_code
+
+
+async def test_member_can_leave_lobby(make_device):
+    alice = await make_device("Alice")
+    bob = await make_device("Bob")
+    room_id, invite_code = await _create_room(alice)
+    await bob.get(f"/rooms/by-code/{invite_code}")
+    state = (await bob.post(f"/rooms/{room_id}/join")).json()
+
+    r = await bob.post(f"/rooms/{room_id}/leave", json={"expected_seq": state["seq"]})
+    assert r.status_code == 200, r.text
+    assert bob.user_id not in r.json()["members"]
+
+
+async def test_host_cannot_leave_returns_400(make_device):
+    alice = await make_device("Alice")
+    room_id, invite_code = await _create_room(alice)
+    state = (await alice.get(f"/rooms/{room_id}/state")).json()
+
+    r = await alice.post(f"/rooms/{room_id}/leave", json={"expected_seq": state["seq"]})
+    assert r.status_code == 400
+
+
+async def test_host_can_disband_lobby(make_device):
+    alice = await make_device("Alice")
+    room_id, invite_code = await _create_room(alice)
+    state = (await alice.get(f"/rooms/{room_id}/state")).json()
+
+    r = await alice.post(f"/rooms/{room_id}/disband", json={"expected_seq": state["seq"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "disbanded"
+
+
+async def test_non_host_cannot_disband(make_device):
+    alice = await make_device("Alice")
+    bob = await make_device("Bob")
+    room_id, invite_code = await _create_room(alice)
+    await bob.get(f"/rooms/by-code/{invite_code}")
+    state = (await bob.post(f"/rooms/{room_id}/join")).json()
+
+    r = await bob.post(f"/rooms/{room_id}/disband", json={"expected_seq": state["seq"]})
+    assert r.status_code == 403

@@ -61,6 +61,10 @@ export const api = {
   byCode: (code: string) => request<{ room_id: string }>(`/rooms/by-code/${code}`),
   getState: (roomId: string) => request<RoomState>(`/rooms/${roomId}/state`),
   join: (roomId: string) => post<RoomState>(`/rooms/${roomId}/join`),
+  leave: (roomId: string, expectedSeq: number) =>
+    post<RoomState>(`/rooms/${roomId}/leave`, { expected_seq: expectedSeq }),
+  disband: (roomId: string, expectedSeq: number) =>
+    post<RoomState>(`/rooms/${roomId}/disband`, { expected_seq: expectedSeq }),
   start: (roomId: string, expectedSeq: number, rules?: Partial<GameRules>) =>
     post<RoomState>(`/rooms/${roomId}/start`, { expected_seq: expectedSeq, rules: rules ?? {} }),
   claimWin: (roomId: string, expectedSeq: number) =>

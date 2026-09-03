@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-09-03
+
+There was no way to exit a room once joined, or to cancel one you created —
+a real gap once people started actually creating rooms and hitting "wrong
+room" or "changed my mind."
+
+### Added
+- "Leave Room" for any non-host member and "Disband Room" for the host, both
+  lobby-only (leaving/disbanding mid-game is a bigger problem — orphaning an
+  in-progress round — and isn't needed to fix this). New `PLAYER_LEFT`/
+  `ROOM_DISBANDED` events and a new `disbanded` room status; anyone still
+  viewing a disbanded room's lobby gets bounced home on their next poll.
+
 ## [0.4.0] - 2026-09-01
 
 Magic links turned out to have real friction in practice: only the

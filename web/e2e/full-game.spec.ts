@@ -145,3 +145,37 @@ test("my stats shows as not-available yet", async ({ page }) => {
   await expect(page).toHaveURL(/\/stats/);
   await expect(page.getByTestId("not-available")).toBeVisible();
 });
+
+test("a member can leave a lobby, and the host can disband it", async ({ browser }) => {
+  const aliceCtx = await browser.newContext();
+  const bobCtx = await browser.newContext();
+  const alice = await aliceCtx.newPage();
+  const bob = await bobCtx.newPage();
+
+  try {
+    const uniq = Date.now().toString(36);
+    await login(alice, `Alice-${uniq}`);
+    await login(bob, `Bob-${uniq}`);
+
+    await createTaidiRoom(alice, "0.20");
+    const inviteCode = (await alice.getByTestId("invite-code").textContent())?.trim();
+
+    await bob.getByTestId("room-code-input").fill(inviteCode!);
+    await bob.getByTestId("join-room-btn").click();
+    await expect(bob).toHaveURL(/\/room\//);
+    await expect(alice.getByTestId("lobby-member")).toHaveCount(2, { timeout: 10_000 });
+
+    // Bob joined the wrong room and leaves — Alice sees the lobby shrink
+    // back to just herself, from her own device.
+    await bob.getByTestId("leave-room-btn").click();
+    await expect(bob).toHaveURL("/");
+    await expect(alice.getByTestId("lobby-member")).toHaveCount(1, { timeout: 10_000 });
+
+    // Alice decides not to play after all and disbands the room.
+    await alice.getByTestId("disband-room-btn").click();
+    await expect(alice).toHaveURL("/");
+  } finally {
+    await aliceCtx.close();
+    await bobCtx.close();
+  }
+});

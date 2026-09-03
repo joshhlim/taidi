@@ -120,6 +120,46 @@ def join_player(
     ]
 
 
+def leave_room(
+    state: RoomState,
+    *,
+    expected_seq: int,
+    actor: UUID,
+    now: datetime | None = None,
+    event_id: UUID | None = None,
+) -> list[Event]:
+    _check_seq(state, expected_seq)
+    _require_member(state, actor)
+    if state.status != RoomStatus.LOBBY:
+        raise IllegalTransition("Can't leave once the game has started.")
+    if actor == state.host_id:
+        raise IllegalTransition("The host can't leave — disband the room instead.")
+    payload = {"player_id": str(actor)}
+    return [
+        _mk_event(
+            state, EventType.PLAYER_LEFT, actor, payload, _now(now), expected_seq + 1, event_id
+        )
+    ]
+
+
+def disband_room(
+    state: RoomState,
+    *,
+    expected_seq: int,
+    actor: UUID,
+    now: datetime | None = None,
+    event_id: UUID | None = None,
+) -> list[Event]:
+    _check_seq(state, expected_seq)
+    if actor != state.host_id:
+        raise NotAuthorized("Only the host can disband the room.")
+    if state.status != RoomStatus.LOBBY:
+        raise IllegalTransition("Can't disband once the game has started.")
+    return [
+        _mk_event(state, EventType.ROOM_DISBANDED, actor, {}, _now(now), expected_seq + 1, event_id)
+    ]
+
+
 def start_game(
     state: RoomState,
     *,
@@ -438,6 +478,15 @@ def apply(state: RoomState, event: Event) -> RoomState:
         new.ended_at = event.created_at
         if new.rounds and new.rounds[-1].is_empty:
             new.rounds.pop()
+
+    elif event.type == EventType.PLAYER_LEFT:
+        pid = UUID(event.payload["player_id"])
+        del new.members[pid]
+        del new.balances[pid]
+
+    elif event.type == EventType.ROOM_DISBANDED:
+        new.status = RoomStatus.DISBANDED
+        new.ended_at = event.created_at
 
     else:  # pragma: no cover
         raise ValueError(f"Unknown event type: {event.type}")

@@ -2,7 +2,7 @@
 // core/taidi_core/models.py. Keep in sync by hand for now; a generated
 // OpenAPI client can replace this once the API is stable.
 
-export type RoomStatus = "lobby" | "in_progress" | "ended";
+export type RoomStatus = "lobby" | "in_progress" | "ended" | "disbanded";
 export type RoundPhase = "playing" | "collecting" | "resolved";
 export type TransferKind = "cards" | "difference" | "base" | "special";
 

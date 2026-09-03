@@ -114,6 +114,7 @@ class RoomStatus(StrEnum):
     LOBBY = "lobby"
     IN_PROGRESS = "in_progress"
     ENDED = "ended"
+    DISBANDED = "disbanded"
 
 
 class RoomState(BaseModel):
@@ -163,6 +164,8 @@ class EventType(StrEnum):
     ROUND_VOIDED = "round_voided"
     SUBMITTED_FOR = "submitted_for"
     GAME_ENDED = "game_ended"
+    PLAYER_LEFT = "player_left"
+    ROOM_DISBANDED = "room_disbanded"
 
 
 class Event(BaseModel):

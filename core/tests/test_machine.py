@@ -82,6 +82,57 @@ class TestLobby:
             )
 
 
+class TestLeaveDisband:
+    def test_member_can_leave_lobby(self, now):
+        state, (A, B, C) = _room(now)
+        state = machine.fold(
+            state, machine.leave_room(state, expected_seq=state.seq, actor=B, now=now)
+        )
+        assert set(state.members) == {A, C}
+        assert B not in state.balances
+
+    def test_non_member_cannot_leave(self, now):
+        state, (A, B, C) = _room(now)
+        with pytest.raises(NotAuthorized):
+            machine.leave_room(state, expected_seq=state.seq, actor=uuid4(), now=now)
+
+    def test_host_cannot_leave(self, now):
+        state, (A, B, C) = _room(now)
+        with pytest.raises(IllegalTransition):
+            machine.leave_room(state, expected_seq=state.seq, actor=A, now=now)
+
+    def test_cannot_leave_after_start(self, now):
+        state, (A, B, C) = _room(now)
+        state = machine.fold(
+            state,
+            machine.start_game(state, expected_seq=state.seq, actor=A, rules=GameRules(), now=now),
+        )
+        with pytest.raises(IllegalTransition):
+            machine.leave_room(state, expected_seq=state.seq, actor=B, now=now)
+
+    def test_host_can_disband_lobby(self, now):
+        state, (A, B, C) = _room(now)
+        state = machine.fold(
+            state, machine.disband_room(state, expected_seq=state.seq, actor=A, now=now)
+        )
+        assert state.status == RoomStatus.DISBANDED
+        assert state.ended_at == now
+
+    def test_non_host_cannot_disband(self, now):
+        state, (A, B, C) = _room(now)
+        with pytest.raises(NotAuthorized):
+            machine.disband_room(state, expected_seq=state.seq, actor=B, now=now)
+
+    def test_cannot_disband_after_start(self, now):
+        state, (A, B, C) = _room(now)
+        state = machine.fold(
+            state,
+            machine.start_game(state, expected_seq=state.seq, actor=A, rules=GameRules(), now=now),
+        )
+        with pytest.raises(IllegalTransition):
+            machine.disband_room(state, expected_seq=state.seq, actor=A, now=now)
+
+
 class TestRound:
     def test_second_win_claim_rejected(self, now):
         state, (A, B, C) = _room(now)
