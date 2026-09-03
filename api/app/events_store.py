@@ -29,8 +29,14 @@ class RoomNotFound(Exception):
 
 
 async def create_room(
-    session: AsyncSession, *, room_id: UUID, host_id: UUID, host_display_name: str, now: datetime
-) -> tuple[RoomState, str]:
+    session: AsyncSession,
+    *,
+    room_id: UUID,
+    host_id: UUID,
+    host_display_name: str,
+    now: datetime,
+    game_type: str = "taidi",
+) -> tuple[RoomState, str, str]:
     invite_code = generate_invite_code()
     await session.execute(
         insert(rooms_table).values(
@@ -39,13 +45,14 @@ async def create_room(
             host_id=host_id,
             host_display_name=host_display_name,
             created_at=now,
+            game_type=game_type,
         )
     )
     await session.commit()
     state = RoomState.new(
         room_id=room_id, host_id=host_id, host_display_name=host_display_name, now=now
     )
-    return state, invite_code
+    return state, invite_code, game_type
 
 
 async def resolve_invite_code(session: AsyncSession, invite_code: str) -> UUID | None:
@@ -85,13 +92,17 @@ async def load_events(session: AsyncSession, room_id: UUID) -> list[Event]:
 
 
 async def rebuild_state(session: AsyncSession, room_id: UUID) -> RoomState:
-    state, _invite_code = await rebuild_state_with_invite(session, room_id)
+    state, _invite_code, _game_type = await rebuild_state_with_invite(session, room_id)
     return state
 
 
-async def rebuild_state_with_invite(session: AsyncSession, room_id: UUID) -> tuple[RoomState, str]:
-    """Like rebuild_state, but also returns the room's invite code — every
-    member should be able to see and share it, not just at creation time."""
+async def rebuild_state_with_invite(
+    session: AsyncSession, room_id: UUID
+) -> tuple[RoomState, str, str]:
+    """Like rebuild_state, but also returns the room's invite code and game
+    type — every member should be able to see/share the code, not just at
+    creation time, and the frontend needs game_type to know which UI to
+    render (see ADR-0006)."""
     seed = await _load_room_seed(session, room_id)
     state = RoomState.new(
         room_id=seed.room_id,
@@ -100,7 +111,7 @@ async def rebuild_state_with_invite(session: AsyncSession, room_id: UUID) -> tup
         now=seed.created_at,
     )
     state = machine.fold(state, await load_events(session, room_id))
-    return state, seed.invite_code
+    return state, seed.invite_code, seed.game_type
 
 
 async def append_events(session: AsyncSession, room_id: UUID, new_events: list[Event]) -> None:

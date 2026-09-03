@@ -16,6 +16,25 @@ async def _create_room(host) -> tuple[str, str]:
     return body["room_id"], body["invite_code"]
 
 
+async def test_create_room_defaults_to_taidi_game_type(make_device):
+    alice = await make_device("Alice")
+    r = await alice.post("/rooms")
+    assert r.status_code == 201, r.text
+    assert r.json()["game_type"] == "taidi"
+
+
+async def test_create_room_accepts_explicit_game_type(make_device):
+    alice = await make_device("Alice")
+    r = await alice.post("/rooms", json={"game_type": "mahjong"})
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["game_type"] == "mahjong"
+
+    room_id = body["room_id"]
+    r = await alice.get(f"/rooms/{room_id}/state")
+    assert r.json()["game_type"] == "mahjong"
+
+
 async def test_create_room_seeds_host_as_first_member(make_device):
     alice = await make_device("Alice")
     room_id, invite_code = await _create_room(alice)

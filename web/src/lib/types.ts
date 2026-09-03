@@ -3,6 +3,7 @@
 // OpenAPI client can replace this once the API is stable.
 
 export type RoomStatus = "lobby" | "in_progress" | "ended" | "disbanded";
+export type GameType = "taidi" | "mahjong";
 export type RoundPhase = "playing" | "collecting" | "resolved";
 export type TransferKind = "cards" | "difference" | "base" | "special";
 
@@ -47,6 +48,7 @@ export interface Member {
 
 export interface RoomState {
   room_id: string;
+  game_type: GameType;
   status: RoomStatus;
   seq: number;
   host_id: string;

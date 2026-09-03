@@ -43,15 +43,15 @@ router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 async def _get_state_with_invite_or_404(
     session: AsyncSession, room_id: UUID
-) -> tuple[RoomState, str]:
+) -> tuple[RoomState, str, str]:
     try:
         return await rebuild_state_with_invite(session, room_id)
     except RoomNotFound as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Room not found.") from e
 
 
-def _as_json(state: RoomState, invite_code: str) -> dict[str, Any]:
-    return {**state.model_dump(mode="json"), "invite_code": invite_code}
+def _as_json(state: RoomState, invite_code: str, game_type: str) -> dict[str, Any]:
+    return {**state.model_dump(mode="json"), "invite_code": invite_code, "game_type": game_type}
 
 
 async def _dispatch(
@@ -67,13 +67,13 @@ async def _dispatch(
     MachineError instead of a raw integrity error.
     """
     for _attempt in range(2):
-        state, invite_code = await _get_state_with_invite_or_404(session, room_id)
+        state, invite_code, game_type = await _get_state_with_invite_or_404(session, room_id)
         try:
             new_events = build_events(state)
         except SeqConflict as e:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                {"message": str(e), "state": _as_json(state, invite_code)},
+                {"message": str(e), "state": _as_json(state, invite_code, game_type)},
             ) from e
         except NotAuthorized as e:
             raise HTTPException(status.HTTP_403_FORBIDDEN, str(e)) from e
@@ -86,26 +86,27 @@ async def _dispatch(
             continue  # someone else's event landed first — rebuild and retry once
 
         new_state = machine.fold(state, new_events)
-        return _as_json(new_state, invite_code)
+        return _as_json(new_state, invite_code, game_type)
 
     raise HTTPException(status.HTTP_409_CONFLICT, "Too many concurrent updates — please retry.")
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create(
-    _body: CreateRoomRequest = CreateRoomRequest(),
+    body: CreateRoomRequest = CreateRoomRequest(),
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     room_id = uuid4()
-    state, invite_code = await create_room(
+    state, invite_code, game_type = await create_room(
         session,
         room_id=room_id,
         host_id=user.user_id,
         host_display_name=user.display_name,
         now=utcnow(),
+        game_type=body.game_type,
     )
-    return _as_json(state, invite_code)
+    return _as_json(state, invite_code, game_type)
 
 
 @router.get("/by-code/{invite_code}")
@@ -122,8 +123,8 @@ async def get_state(
     _user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    state, invite_code = await _get_state_with_invite_or_404(session, room_id)
-    return _as_json(state, invite_code)
+    state, invite_code, game_type = await _get_state_with_invite_or_404(session, room_id)
+    return _as_json(state, invite_code, game_type)
 
 
 @router.post("/{room_id}/join")

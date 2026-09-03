@@ -43,6 +43,9 @@ rooms = Table(
     Column("host_id", PGUUID(as_uuid=True), nullable=False),
     Column("host_display_name", String(100), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    # Which core package's machine/EventType a room's events fold through —
+    # "taidi" (taidi_core) or "mahjong" (mahjong_core). See ADR-0006.
+    Column("game_type", String(16), nullable=False, server_default="taidi"),
 )
 
 events = Table(

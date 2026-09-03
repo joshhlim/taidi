@@ -8,6 +8,7 @@ round-trip to know what happened.
 
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -15,7 +16,7 @@ from taidi_core.models import GameRules
 
 
 class CreateRoomRequest(BaseModel):
-    pass  # host is the authenticated user; nothing else needed to open a lobby
+    game_type: Literal["taidi", "mahjong"] = "taidi"
 
 
 class StartGameRequest(BaseModel):

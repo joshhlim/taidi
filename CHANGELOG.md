@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-09-03
+
+Groundwork for Mahjong as a second game type (ADR-0006) — no user-visible
+change yet, the Mahjong tile still shows "Coming soon."
+
+### Added
+- `rooms.game_type` column (`taidi` | `mahjong`, defaults to `taidi`),
+  threaded through room creation and every state response so the frontend
+  can eventually branch on it.
+
 ## [0.4.1] - 2026-09-03
 
 There was no way to exit a room once joined, or to cancel one you created —
