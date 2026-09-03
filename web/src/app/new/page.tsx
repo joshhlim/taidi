@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useStoredUser } from "@/lib/auth";
-import type { GameRules } from "@/lib/types";
+import type { GameRules, GameType } from "@/lib/types";
+import type { MahjongRules } from "@/lib/mahjongTypes";
 
 const DEFAULT_RULES: GameRules = {
   card_value_cents: 20,
@@ -17,9 +18,32 @@ const DEFAULT_RULES: GameRules = {
   special_hand_cards: 5,
 };
 
+const DEFAULT_MAHJONG_RULES: MahjongRules = {
+  yao_unit_cents: 100,
+  gang_unit_cents: 100,
+  tai_unit_cents: 100,
+  zimo_unit_cents: 100,
+  max_tai: 10,
+};
+
+const MAHJONG_PRESETS: { label: string; rules: MahjongRules }[] = [
+  {
+    label: "Casual",
+    rules: { yao_unit_cents: 50, gang_unit_cents: 50, tai_unit_cents: 50, zimo_unit_cents: 50, max_tai: 10 },
+  },
+  {
+    label: "Standard",
+    rules: { yao_unit_cents: 100, gang_unit_cents: 100, tai_unit_cents: 100, zimo_unit_cents: 100, max_tai: 10 },
+  },
+  {
+    label: "High Stakes",
+    rules: { yao_unit_cents: 200, gang_unit_cents: 200, tai_unit_cents: 200, zimo_unit_cents: 200, max_tai: 13 },
+  },
+];
+
 const GAMES = [
   { id: "taidi", label: "Taidi", available: true },
-  { id: "mahjong", label: "Mahjong", available: false },
+  { id: "mahjong", label: "Mahjong", available: true },
   { id: "poker", label: "Poker", available: false },
 ] as const;
 
@@ -64,6 +88,7 @@ export default function NewRoomPage() {
   const { user, checked } = useStoredUser();
   const [selected, setSelected] = useState<GameId | null>(null);
   const [rules, setRules] = useState<GameRules>(DEFAULT_RULES);
+  const [mahjongRules, setMahjongRules] = useState<MahjongRules>(DEFAULT_MAHJONG_RULES);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,15 +103,20 @@ export default function NewRoomPage() {
     setRules((r) => ({ ...r, [key]: value }));
   }
 
-  async function handleCreate() {
+  function setMahjong<K extends keyof MahjongRules>(key: K, value: MahjongRules[K]) {
+    setMahjongRules((r) => ({ ...r, [key]: value }));
+  }
+
+  async function handleCreate(gameType: GameType) {
     setBusy(true);
     setError(null);
     try {
-      const room = await api.createRoom();
-      // The room only takes rules at start_game time (once 2+ players have
-      // joined), so we hold onto what was configured here until then.
-      sessionStorage.setItem(`gambrole_rules_${room.room_id}`, JSON.stringify(rules));
-      router.push(`/room/${room.room_id}`);
+      // The room only takes rules at start_game time (once the lobby is
+      // full), so we hold onto what was configured here until then.
+      const created = await api.createRoom(gameType);
+      const chosenRules = gameType === "mahjong" ? mahjongRules : rules;
+      sessionStorage.setItem(`gambrole_rules_${created.room_id}`, JSON.stringify(chosenRules));
+      router.push(`/room/${created.room_id}`);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't create a room.");
       setBusy(false);
@@ -122,16 +152,100 @@ export default function NewRoomPage() {
             </button>
           ))}
         </div>
-      ) : selected !== "taidi" ? (
+      ) : selected === "poker" ? (
         <div className="space-y-4 text-center py-8">
           <p data-testid="not-available" className="text-sm text-muted">
             Feature not available yet.
           </p>
-          <button
-            onClick={() => setSelected(null)}
-            className="text-sm font-semibold text-brand"
-          >
+          <button onClick={() => setSelected(null)} className="text-sm font-semibold text-brand">
             Choose another game
+          </button>
+        </div>
+      ) : selected === "mahjong" ? (
+        <div className="space-y-5">
+          <div>
+            <p className="text-xs text-muted mb-2">Presets</p>
+            <div className="grid grid-cols-3 gap-2">
+              {MAHJONG_PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => setMahjongRules(p.rules)}
+                  data-testid={`mahjong-preset-${p.label.toLowerCase().replace(" ", "-")}`}
+                  className="rounded-xl border border-border bg-surface px-2 py-2 text-xs font-semibold"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="咬 YAO ($)">
+              <input
+                type="number"
+                step={0.05}
+                min={0}
+                data-testid="rule-yao"
+                value={mahjongRules.yao_unit_cents / 100}
+                onChange={(e) => setMahjong("yao_unit_cents", Math.round((Number(e.target.value) || 0) * 100))}
+                className={inputCls}
+              />
+            </Field>
+            <Field label="槓 GANG ($)">
+              <input
+                type="number"
+                step={0.05}
+                min={0}
+                data-testid="rule-gang"
+                value={mahjongRules.gang_unit_cents / 100}
+                onChange={(e) => setMahjong("gang_unit_cents", Math.round((Number(e.target.value) || 0) * 100))}
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Per 台 TAI ($)">
+              <input
+                type="number"
+                step={0.05}
+                min={0}
+                data-testid="rule-tai"
+                value={mahjongRules.tai_unit_cents / 100}
+                onChange={(e) => setMahjong("tai_unit_cents", Math.round((Number(e.target.value) || 0) * 100))}
+                className={inputCls}
+              />
+            </Field>
+            <Field label="自摸 Zimo per 台 ($)">
+              <input
+                type="number"
+                step={0.05}
+                min={0}
+                data-testid="rule-zimo"
+                value={mahjongRules.zimo_unit_cents / 100}
+                onChange={(e) => setMahjong("zimo_unit_cents", Math.round((Number(e.target.value) || 0) * 100))}
+                className={inputCls}
+              />
+            </Field>
+          </div>
+
+          <Field label="Max 台 TAI">
+            <input
+              type="number"
+              min={1}
+              data-testid="rule-max-tai"
+              value={mahjongRules.max_tai}
+              onChange={(e) => setMahjong("max_tai", Math.max(1, Number(e.target.value) || 1))}
+              className={inputCls}
+            />
+          </Field>
+
+          {error && <p className="text-sm text-center text-danger">{error}</p>}
+
+          <button
+            onClick={() => handleCreate("mahjong")}
+            disabled={busy}
+            data-testid="create-room-btn"
+            className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Create Room
           </button>
         </div>
       ) : (
@@ -213,7 +327,7 @@ export default function NewRoomPage() {
           {error && <p className="text-sm text-center text-danger">{error}</p>}
 
           <button
-            onClick={handleCreate}
+            onClick={() => handleCreate("taidi")}
             disabled={busy}
             data-testid="create-room-btn"
             className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white disabled:opacity-50"

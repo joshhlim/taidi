@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-09-03
+
+**Mahjong is live** — the second playable game (Phase E, the final slice of
+the leave/disband + Mahjong plan). The "Coming soon" tile on New Room now
+works end to end.
+
+### Added
+- Full Mahjong room UI: a lobby seat-arranger (host taps two players to
+  swap their 東/南/西/北 seats before starting), a live table showing wind/
+  dealer, running balances in turn order from the viewer's own seat, the
+  three action buttons (咬 YAO / 槓 GANG / 胡了 HU LE) with their
+  sub-choice flows (player picker, MING/AN, ANGANG, 包 BAO + 台 TAI
+  stepper), a No Win control, host-only "End Game Now", and the
+  4-winds-complete continue/end prompt.
+- A Mahjong rules form on New Room (per-action dollar amounts, max TAI)
+  with three example presets (Casual/Standard/High Stakes) as a starting
+  point — not a full named/saved-ruleset system yet, unlike Taidi's.
+- New Playwright coverage: a full 4-device hand exercising YAO, GANG, and a
+  direct HU with dealer rotation, plus lobby leave/disband for Mahjong
+  rooms.
+
 ## [0.4.4] - 2026-09-03
 
 Mahjong's API layer (Phase D of the leave/disband + Mahjong plan). Still no

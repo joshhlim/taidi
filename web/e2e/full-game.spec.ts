@@ -126,17 +126,15 @@ test("a full game across three simulated devices", async ({ browser }) => {
   }
 });
 
-test("mahjong and poker show as not-available yet", async ({ page }) => {
+test("poker shows as not-available yet", async ({ page }) => {
   await login(page, `Dana-${Date.now().toString(36)}`);
   await page.getByTestId("new-room-btn").click();
   await expect(page).toHaveURL(/\/new/);
 
-  for (const game of ["mahjong", "poker"] as const) {
-    await page.getByTestId(`game-tile-${game}`).click();
-    await expect(page.getByTestId("not-available")).toBeVisible();
-    await page.getByText("Choose another game").click();
-    await expect(page.getByTestId(`game-tile-${game}`)).toBeVisible();
-  }
+  await page.getByTestId("game-tile-poker").click();
+  await expect(page.getByTestId("not-available")).toBeVisible();
+  await page.getByText("Choose another game").click();
+  await expect(page.getByTestId("game-tile-poker")).toBeVisible();
 });
 
 test("my stats shows as not-available yet", async ({ page }) => {

@@ -30,7 +30,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const auth = getStoredAuth();
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -53,7 +53,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-const post = <T>(path: string, body?: unknown) =>
+export const post = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) });
 
 export const api = {
