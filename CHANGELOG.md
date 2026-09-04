@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.3] - 2026-09-04
+
+### Added
+- A "5/1 半" Mahjong preset: base 500, yao 3, gang 3, zimo bonus 5, KLPPDD
+  5, tai 1-7 paying hu 4/8/16/32/64/128/256 and zimo 2/4/8/16/32/64/128.
+
 ## [0.5.2] - 2026-09-04
 
 Two optional Mahjong HU bonuses, on top of the tai payout: a zimo bonus and

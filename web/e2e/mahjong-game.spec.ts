@@ -38,6 +38,25 @@ function amountFor(page: Page, name: string) {
     .first();
 }
 
+test("the 5/1 半 preset fills in its stakes table", async ({ page }) => {
+  await login(page, `Preset-${Date.now().toString(36)}`);
+  await page.getByTestId("new-room-btn").click();
+  await page.getByTestId("game-tile-mahjong").click();
+
+  await page.getByTestId("mahjong-preset-5/1-半").click();
+
+  await expect(page.getByTestId("rule-base")).toHaveValue("500");
+  await expect(page.getByTestId("rule-yao")).toHaveValue("3");
+  await expect(page.getByTestId("rule-gang")).toHaveValue("3");
+  await expect(page.getByTestId("rule-zimo-bonus")).toHaveValue("5");
+  await expect(page.getByTestId("rule-klppdd")).toHaveValue("5");
+  await expect(page.getByTestId("rule-tai-1-hu")).toHaveValue("4");
+  await expect(page.getByTestId("rule-tai-1-zimo")).toHaveValue("2");
+  await expect(page.getByTestId("rule-tai-7-hu")).toHaveValue("256");
+  await expect(page.getByTestId("rule-tai-7-zimo")).toHaveValue("128");
+  await expect(page.getByTestId("tai-row-add")).toBeVisible();
+});
+
 test("a full hand across four simulated devices", async ({ browser }) => {
   const contexts = await Promise.all([0, 1, 2, 3].map(() => browser.newContext()));
   const [alice, bob, cara, dan] = await Promise.all(contexts.map((c) => c.newPage()));

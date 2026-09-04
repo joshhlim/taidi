@@ -39,8 +39,31 @@ const DEFAULT_MAHJONG_RULES: MahjongRules = {
   tai_table: BAN_3_6_TABLE,
 };
 
+// "5/1 半" — higher stakes, more tai levels. Same non-linear-table shape
+// as "3/6 半", plus a zimo bonus and KLPPDD on by default.
+const BAN_5_1_TABLE: Record<string, TaiPayout> = {
+  1: { hu: 4, zimo: 2 },
+  2: { hu: 8, zimo: 4 },
+  3: { hu: 16, zimo: 8 },
+  4: { hu: 32, zimo: 16 },
+  5: { hu: 64, zimo: 32 },
+  6: { hu: 128, zimo: 64 },
+  7: { hu: 256, zimo: 128 },
+};
+
+const HIGH_STAKES_MAHJONG_RULES: MahjongRules = {
+  base_chips: 500,
+  yao_chips: 3,
+  gang_chips: 3,
+  zimo_bonus_chips: 5,
+  klppdd_chips: 5,
+  max_tai: 7,
+  tai_table: BAN_5_1_TABLE,
+};
+
 const MAHJONG_PRESETS: { label: string; rules: MahjongRules }[] = [
   { label: "3/6 半", rules: DEFAULT_MAHJONG_RULES },
+  { label: "5/1 半", rules: HIGH_STAKES_MAHJONG_RULES },
 ];
 
 const GAMES = [
