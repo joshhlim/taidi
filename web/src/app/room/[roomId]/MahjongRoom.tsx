@@ -334,7 +334,7 @@ function TableView({
     <div className="space-y-6">
       {hand && (
         <div
-          className="relative mx-auto grid w-full max-w-[19rem] items-center justify-items-center gap-2"
+          className="relative mx-auto grid w-full max-w-[22rem] items-center justify-items-center gap-2"
           style={{
             gridTemplateColumns: "1fr 1fr 1fr",
             gridTemplateAreas: `". top ." "left center right" ". bottom ."`,
@@ -353,11 +353,12 @@ function TableView({
                 style={{ gridArea: SEAT_POSITIONS[i] }}
                 data-testid="standing-row"
                 data-player={m.display_name}
-                className={`flex flex-col items-center gap-0.5 rounded-xl border px-2 py-2 text-center text-xs ${
+                data-dealer={isDealer}
+                className={`flex h-28 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border px-2 text-center text-xs ${
                   isDealer ? "border-gold bg-[#FFF8E1]" : "border-border bg-surface"
                 }`}
               >
-                <span className="text-[11px] font-bold text-brand">
+                <span className="text-xs font-bold text-brand">
                   {label.han} {label.pinyin}
                 </span>
                 <span className="flex max-w-[6rem] items-baseline gap-1">
@@ -368,7 +369,7 @@ function TableView({
                 </span>
                 <span
                   data-testid="standing-amount"
-                  className={`font-bold ${net < 0 ? "text-danger" : "text-brand-strong"}`}
+                  className={`text-sm font-bold ${net < 0 ? "text-danger" : "text-brand-strong"}`}
                 >
                   {chips(stack)}
                 </span>
@@ -378,6 +379,9 @@ function TableView({
 
           <div
             style={{ gridArea: "center" }}
+            data-testid="dealer-seat"
+            data-wind={hand.wind}
+            data-dealer-seat={hand.dealer_seat}
             className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold bg-[#FFF8E1]"
           >
             <span className="text-lg font-extrabold text-brand">
@@ -386,14 +390,6 @@ function TableView({
             </span>
           </div>
         </div>
-      )}
-
-      {hand && (
-        <p data-testid="wind-dealer" className="text-center text-xs text-muted">
-          Wind {hand.wind} · Dealer {seatLabel(hand.dealer_seat).han} {seatLabel(hand.dealer_seat).pinyin}
-          {" — "}
-          {bySeat[hand.dealer_seat]?.display_name ?? "?"}
-        </p>
       )}
 
       {action === null && (

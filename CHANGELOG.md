@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.6] - 2026-09-04
+
+### Changed
+- Mahjong table view: player cards are now a fixed size regardless of
+  display name length (previously they sized to their own content and
+  looked inconsistent), and slightly larger. Dropped the "Wind X · Dealer
+  ... — name" caption line under the table now that the center badge and
+  dealer highlighting cover that.
+
 ## [0.5.5] - 2026-09-04
 
 ### Changed

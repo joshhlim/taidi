@@ -87,7 +87,7 @@ test("a full hand across four simulated devices", async ({ browser }) => {
     await alice.getByTestId("start-game-btn").click();
     for (const p of [alice, bob, cara, dan]) {
       await expect(p.getByTestId("yao-btn")).toBeVisible({ timeout: 10_000 });
-      await expect(p.getByTestId("wind-dealer")).toContainText("Wind 1");
+      await expect(p.getByTestId("dealer-seat")).toHaveAttribute("data-wind", "1");
     }
 
     // Alice YAOs herself (咬自己): each of the other 3 pays 2 chips. Displayed
@@ -116,12 +116,18 @@ test("a full hand across four simulated devices", async ({ browser }) => {
     await dan.getByTestId("confirm-hu-btn").click();
 
     for (const p of [alice, bob, cara, dan]) {
-      await expect(p.getByTestId("wind-dealer")).toContainText("Wind 1", { timeout: 10_000 });
+      await expect(p.getByTestId("dealer-seat")).toHaveAttribute("data-wind", "1", {
+        timeout: 10_000,
+      });
       // Back to the action buttons for hand 2 on every device.
       await expect(p.getByTestId("yao-btn")).toBeVisible({ timeout: 10_000 });
     }
-    // Dealer started at seat 0 (東, Alice); a gang rotates it to seat 1 (南, Bob).
-    await expect(alice.getByTestId("wind-dealer")).toContainText("Bob");
+    // Dealer started at seat 0 (東, Alice); Dan (seat 3) winning rotates it
+    // to seat 1 (南, Bob).
+    await expect(alice.getByTestId("dealer-seat")).toHaveAttribute("data-dealer-seat", "1");
+    await expect(
+      alice.locator('[data-testid="standing-row"][data-player^="Bob"]'),
+    ).toHaveAttribute("data-dealer", "true");
 
     // Host ends the game — everyone sees the final-stats screen.
     await alice.getByTestId("end-game-btn").click();
