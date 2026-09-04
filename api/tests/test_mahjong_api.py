@@ -59,6 +59,9 @@ async def test_start_rejected_with_fewer_than_four(make_device):
 
 
 async def test_yao_gang_hu_settle_correctly(make_device):
+    """Uses the default rules (the "3/6 半" preset: yao=2, gang=2, tai(1)=hu4/zimo4)
+    except yao/gang chips overridden for clearer arithmetic — the tai_table
+    itself is exercised by test_mahjong_rules_fixtures.py."""
     room_id, invite_code, (alice, bob, cara, dan) = await _full_table(make_device)
     state = (await alice.get(f"/rooms/{room_id}/state")).json()
     state = (
@@ -66,20 +69,20 @@ async def test_yao_gang_hu_settle_correctly(make_device):
             f"/rooms/{room_id}/mahjong/start",
             json={
                 "expected_seq": state["seq"],
-                "rules": {"yao_unit_cents": 100, "gang_unit_cents": 50, "tai_unit_cents": 100},
+                "rules": {"yao_chips": 2, "gang_chips": 2},
             },
         )
     ).json()
 
-    # Alice YAOs herself: each of the other 3 pays 100.
+    # Alice YAOs herself: each of the other 3 pays 2.
     r = await alice.post(
         f"/rooms/{room_id}/mahjong/yao",
         json={"expected_seq": state["seq"], "target_seat": 0, "an": False},
     )
     assert r.status_code == 200, r.text
     state = r.json()
-    assert state["balances"][alice.user_id] == 300
-    assert state["balances"][bob.user_id] == -100
+    assert state["balances"][alice.user_id] == 6
+    assert state["balances"][bob.user_id] == -2
 
     # Bob GANGs on Cara (seat 2): Cara alone pays 3x.
     r = await bob.post(
@@ -87,18 +90,19 @@ async def test_yao_gang_hu_settle_correctly(make_device):
     )
     assert r.status_code == 200, r.text
     state = r.json()
-    assert state["balances"][bob.user_id] == -100 + 150
-    assert state["balances"][cara.user_id] == -100 - 150  # Cara already paid Alice's YAO
+    assert state["balances"][bob.user_id] == -2 + 6
+    assert state["balances"][cara.user_id] == -2 - 6  # Cara already paid Alice's YAO
     assert state["hands"][0]["had_gang"] is True
 
-    # Dan directly HUs off Alice (seat 0) at 2 tai: Alice pays 200.
+    # Dan directly HUs off Alice (seat 0) at 1 tai: Alice pays the default
+    # table's hu(1) = 4.
     r = await dan.post(
         f"/rooms/{room_id}/mahjong/hu",
-        json={"expected_seq": state["seq"], "mode": "direct", "target_seat": 0, "tai": 2},
+        json={"expected_seq": state["seq"], "mode": "direct", "target_seat": 0, "tai": 1},
     )
     assert r.status_code == 200, r.text
     state = r.json()
-    assert state["balances"][dan.user_id] == -100 + 200  # Dan already paid Alice's YAO
+    assert state["balances"][dan.user_id] == -2 + 4  # Dan already paid Alice's YAO
     assert state["hands"][0]["closed"] is True
     # A gang happened this hand -> dealer rotates to seat 1 (Bob).
     assert len(state["hands"]) == 2

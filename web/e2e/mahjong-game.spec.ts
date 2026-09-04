@@ -59,20 +59,22 @@ test("a full hand across four simulated devices", async ({ browser }) => {
       await expect(p.getByTestId("wind-dealer")).toContainText("Wind 1");
     }
 
-    // Alice YAOs herself (咬自己): each of the other 3 pays.
+    // Alice YAOs herself (咬自己): each of the other 3 pays 2 chips. Displayed
+    // amounts are chip stacks (base 300 + net), not raw dollars.
     await alice.getByTestId("yao-btn").click();
     await alice.getByTestId("pick-seat-0").click();
     await alice.getByTestId("yao-ming-btn").click();
     for (const p of [alice, bob, cara, dan]) {
-      await expect(amountFor(p, "Alice")).toHaveText("$3.00", { timeout: 10_000 });
+      await expect(amountFor(p, "Alice")).toHaveText("306", { timeout: 10_000 }); // 300 + 3*2
     }
 
-    // Bob declares ANGANG: each of the other 3 pays double, and the hand is
-    // now flagged as having had a gang (visible via dealer rotation later).
+    // Bob declares ANGANG: each of the other 3 pays gang_chips*2=4, and the
+    // hand is now flagged as having had a gang (visible via dealer rotation
+    // later). Bob already paid 2 into Alice's YAO, so his net is -2+12=10.
     await bob.getByTestId("gang-btn").click();
     await bob.getByTestId("pick-angang").click();
     for (const p of [alice, bob, cara, dan]) {
-      await expect(amountFor(p, "Bob")).toHaveText("$5.00", { timeout: 10_000 });
+      await expect(amountFor(p, "Bob")).toHaveText("310", { timeout: 10_000 }); // 300 - 2 + 3*4
     }
 
     // Dan directly HUs off Cara (seat 2) at 2 tai — closes the hand. A gang

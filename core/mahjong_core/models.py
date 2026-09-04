@@ -27,35 +27,56 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from taidi_core.models import Member, RoomStatus
 
 
+class TaiPayout(BaseModel):
+    """One tai level's fixed payout. Real mahjong stakes tables aren't
+    linear (a 5-tai hand pays far more than 5x a 1-tai hand), so this is a
+    per-level lookup rather than a rate multiplied by tai."""
+
+    model_config = ConfigDict(frozen=True)
+
+    hu: int
+    zimo: int
+
+
+# "3/6 半" — the first real stakes table this app supports. Money is
+# tracked in chips, not cents; base_chips is a starting stack used only for
+# display (see RoomState docstring below), never part of the settlement math.
+_DEFAULT_TAI_TABLE = {
+    1: TaiPayout(hu=4, zimo=4),
+    2: TaiPayout(hu=7, zimo=5),
+    3: TaiPayout(hu=11, zimo=7),
+    4: TaiPayout(hu=20, zimo=12),
+    5: TaiPayout(hu=40, zimo=22),
+}
+
+
 class MahjongRules(BaseModel):
     """Everything about how a game is scored. All of it configurable."""
 
     model_config = ConfigDict(frozen=True)
 
-    yao_unit_cents: int = 100
-    gang_unit_cents: int = 100
-    tai_unit_cents: int = 100
-    zimo_unit_cents: int = 100
-    max_tai: int = 10
+    base_chips: int = 300
+    yao_chips: int = 2
+    gang_chips: int = 2
+    max_tai: int = 5
+    tai_table: dict[int, TaiPayout] = Field(default_factory=lambda: dict(_DEFAULT_TAI_TABLE))
 
     @model_validator(mode="after")
     def _validate(self) -> MahjongRules:
-        if (
-            min(
-                self.yao_unit_cents, self.gang_unit_cents, self.tai_unit_cents, self.zimo_unit_cents
-            )
-            < 0
-        ):
+        if min(self.base_chips, self.yao_chips, self.gang_chips) < 0:
             raise ValueError("Rule values can't be negative.")
         if self.max_tai < 1:
             raise ValueError("max_tai must be at least 1.")
+        missing = [t for t in range(1, self.max_tai + 1) if t not in self.tai_table]
+        if missing:
+            raise ValueError(f"tai_table is missing entries for tai={missing}.")
         return self
 
     def describe(self) -> str:
+        top = self.tai_table[self.max_tai]
         return (
-            f"yao ${self.yao_unit_cents / 100:.2f} · gang ${self.gang_unit_cents / 100:.2f} · "
-            f"${self.tai_unit_cents / 100:.2f}/tai (zimo ${self.zimo_unit_cents / 100:.2f}/tai) · "
-            f"max {self.max_tai} tai"
+            f"base {self.base_chips} chips · yao {self.yao_chips} · gang {self.gang_chips} · "
+            f"up to {self.max_tai} tai (hu {top.hu} / zimo {top.zimo})"
         )
 
 
@@ -89,7 +110,10 @@ class HandState(BaseModel):
 
 
 class RoomState(BaseModel):
-    """The full, derivable state of one room. Rebuilt by folding events through machine.apply()."""
+    """The full, derivable state of one room. Rebuilt by folding events through
+    machine.apply(). `balances` is always net (can go negative) — a player's
+    displayed chip stack is `rules.base_chips + balances[player_id]`, computed
+    by the caller, not stored here."""
 
     room_id: UUID
     status: RoomStatus = RoomStatus.LOBBY

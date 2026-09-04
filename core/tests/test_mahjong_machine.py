@@ -4,13 +4,22 @@ from __future__ import annotations
 
 import pytest
 from mahjong_core import machine
-from mahjong_core.models import MahjongRules, RoomState
+from mahjong_core.models import MahjongRules, RoomState, TaiPayout
 from taidi_core.errors import IllegalTransition, NotAuthorized, SeqConflict
 from taidi_core.models import RoomStatus
 
 from .conftest import letter_id
 
 A, B, C, D = letter_id("A"), letter_id("B"), letter_id("C"), letter_id("D")
+
+
+def _tai_rules(**overrides) -> MahjongRules:
+    """5 clean, distinct tai levels (hu=100*tai, zimo=50*tai) — not the real
+    3/6 半 numbers, just easy-to-check round values for testing the lookup
+    mechanism itself. See test_mahjong_rules_fixtures.py for the actual
+    preset's numbers."""
+    table = {t: TaiPayout(hu=100 * t, zimo=50 * t) for t in range(1, 6)}
+    return MahjongRules(max_tai=5, tai_table=table, **overrides)
 
 
 def _room(now) -> RoomState:
@@ -132,37 +141,37 @@ class TestLobby:
 
 class TestYao:
     def test_self_select_charges_each_other_player(self, now):
-        state = _started_room(now, MahjongRules(yao_unit_cents=100))
+        state = _started_room(now, MahjongRules(yao_chips=2))
         state = machine.fold(
             state,
             machine.declare_yao(
                 state, expected_seq=state.seq, actor=A, target_seat=0, an=False, now=now
             ),
         )
-        assert state.balances[A] == 300
-        assert state.balances[B] == state.balances[C] == state.balances[D] == -100
+        assert state.balances[A] == 6
+        assert state.balances[B] == state.balances[C] == state.balances[D] == -2
 
     def test_self_select_an_doubles(self, now):
-        state = _started_room(now, MahjongRules(yao_unit_cents=100))
+        state = _started_room(now, MahjongRules(yao_chips=2))
         state = machine.fold(
             state,
             machine.declare_yao(
                 state, expected_seq=state.seq, actor=A, target_seat=0, an=True, now=now
             ),
         )
-        assert state.balances[A] == 600
-        assert state.balances[B] == -200
+        assert state.balances[A] == 12
+        assert state.balances[B] == -4
 
     def test_other_select_charges_only_target(self, now):
-        state = _started_room(now, MahjongRules(yao_unit_cents=100))
+        state = _started_room(now, MahjongRules(yao_chips=2))
         state = machine.fold(
             state,
             machine.declare_yao(
                 state, expected_seq=state.seq, actor=A, target_seat=1, an=False, now=now
             ),
         )
-        assert state.balances[A] == 100
-        assert state.balances[B] == -100
+        assert state.balances[A] == 2
+        assert state.balances[B] == -2
         assert state.balances[C] == 0
         assert state.balances[D] == 0
 
@@ -180,34 +189,34 @@ class TestYao:
 
 class TestGang:
     def test_self_select_charges_each_other_player_once(self, now):
-        state = _started_room(now, MahjongRules(gang_unit_cents=50))
+        state = _started_room(now, MahjongRules(gang_chips=2))
         state = machine.fold(
             state, machine.declare_gang(state, expected_seq=state.seq, actor=A, target=0, now=now)
         )
-        assert state.balances[A] == 150
-        assert state.balances[B] == state.balances[C] == state.balances[D] == -50
+        assert state.balances[A] == 6
+        assert state.balances[B] == state.balances[C] == state.balances[D] == -2
         assert state.hands[0].had_gang
 
     def test_other_select_charges_target_triple(self, now):
-        state = _started_room(now, MahjongRules(gang_unit_cents=50))
+        state = _started_room(now, MahjongRules(gang_chips=2))
         state = machine.fold(
             state, machine.declare_gang(state, expected_seq=state.seq, actor=A, target=1, now=now)
         )
-        assert state.balances[A] == 150
-        assert state.balances[B] == -150
+        assert state.balances[A] == 6
+        assert state.balances[B] == -6
         assert state.balances[C] == 0
 
     def test_angang_charges_each_other_player_double(self, now):
-        state = _started_room(now, MahjongRules(gang_unit_cents=50))
+        state = _started_room(now, MahjongRules(gang_chips=2))
         state = machine.fold(
             state,
             machine.declare_gang(state, expected_seq=state.seq, actor=A, target="angang", now=now),
         )
-        assert state.balances[A] == 300
-        assert state.balances[B] == state.balances[C] == state.balances[D] == -100
+        assert state.balances[A] == 12
+        assert state.balances[B] == state.balances[C] == state.balances[D] == -4
 
     def test_multiple_gangs_in_one_hand(self, now):
-        state = _started_room(now, MahjongRules(gang_unit_cents=50))
+        state = _started_room(now, MahjongRules(gang_chips=2))
         state = machine.fold(
             state, machine.declare_gang(state, expected_seq=state.seq, actor=A, target=1, now=now)
         )
@@ -222,19 +231,19 @@ class TestGang:
 
 class TestHu:
     def test_direct_win_charges_only_target(self, now):
-        state = _started_room(now, MahjongRules(tai_unit_cents=100))
+        state = _started_room(now, _tai_rules())
         state = machine.fold(
             state,
             machine.declare_hu(
                 state, expected_seq=state.seq, actor=A, mode="direct", target_seat=1, tai=3, now=now
             ),
         )
-        assert state.balances[A] == 300
+        assert state.balances[A] == 300  # hu(3) = 100*3
         assert state.balances[B] == -300
         assert state.balances[C] == 0
 
     def test_zimo_charges_each_other_player(self, now):
-        state = _started_room(now, MahjongRules(zimo_unit_cents=100))
+        state = _started_room(now, _tai_rules())
         state = machine.fold(
             state,
             machine.declare_hu(
@@ -247,19 +256,19 @@ class TestHu:
                 now=now,
             ),
         )
-        assert state.balances[A] == 600
-        assert state.balances[B] == state.balances[C] == state.balances[D] == -200
+        assert state.balances[A] == 300  # zimo(2)=100 each * 3 payers
+        assert state.balances[B] == state.balances[C] == state.balances[D] == -100
 
     def test_bao_charges_target_the_full_zimo_amount(self, now):
-        state = _started_room(now, MahjongRules(zimo_unit_cents=100))
+        state = _started_room(now, _tai_rules())
         state = machine.fold(
             state,
             machine.declare_hu(
                 state, expected_seq=state.seq, actor=A, mode="bao", target_seat=1, tai=2, now=now
             ),
         )
-        assert state.balances[A] == 600
-        assert state.balances[B] == -600
+        assert state.balances[A] == 300  # zimo(2)=100 * 3, all from one payer
+        assert state.balances[B] == -300
         assert state.balances[C] == 0
         assert state.balances[D] == 0
 

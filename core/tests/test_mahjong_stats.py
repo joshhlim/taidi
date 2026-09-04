@@ -25,7 +25,7 @@ def _ended_room(now, yao_delta=100):
             state,
             expected_seq=state.seq,
             actor=A,
-            rules=MahjongRules(yao_unit_cents=yao_delta),
+            rules=MahjongRules(yao_chips=yao_delta),
             now=now,
         ),
     )

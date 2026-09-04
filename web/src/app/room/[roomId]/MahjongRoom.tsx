@@ -19,9 +19,8 @@ function readStoredRules(roomId: string): Partial<MahjongRules> | undefined {
   }
 }
 
-function money(cents: number): string {
-  const dollars = Math.abs(cents) / 100;
-  return `${cents < 0 ? "-" : ""}$${dollars.toFixed(2)}`;
+function chips(amount: number): string {
+  return amount.toLocaleString();
 }
 
 function seatLabel(seat: number) {
@@ -343,7 +342,8 @@ function TableView({
           const m = bySeat[seat];
           if (!m) return null;
           const label = seatLabel(seat);
-          const cents = state.balances[m.player_id] ?? 0;
+          const net = state.balances[m.player_id] ?? 0;
+          const stack = (state.rules?.base_chips ?? 0) + net;
           return (
             <div
               key={m.player_id}
@@ -360,8 +360,8 @@ function TableView({
                 {m.display_name}
                 {m.player_id === me && <span className="ml-1 text-xs text-muted">(you)</span>}
               </span>
-              <span data-testid="standing-amount" className={`font-bold ${cents < 0 ? "text-danger" : "text-brand-strong"}`}>
-                {money(cents)}
+              <span data-testid="standing-amount" className={`font-bold ${net < 0 ? "text-danger" : "text-brand-strong"}`}>
+                {chips(stack)}
               </span>
             </div>
           );
@@ -753,8 +753,9 @@ function EndedView({
   nameOf: (id: string) => string;
   onHome: () => void;
 }) {
+  const baseChips = state.rules?.base_chips ?? 0;
   const standings = Object.entries(state.balances).sort(([, a], [, b]) => b - a);
-  const [topId, topCents] = standings[0] ?? [null, 0];
+  const [topId, topNet] = standings[0] ?? [null, 0];
 
   return (
     <div className="space-y-6">
@@ -770,12 +771,12 @@ function EndedView({
       {topId && (
         <p className="text-center text-sm text-muted">
           <span className="font-semibold text-foreground">{nameOf(topId)}</span> wins with{" "}
-          <span className="font-bold text-brand-strong">{money(topCents)}</span>
+          <span className="font-bold text-brand-strong">{chips(baseChips + topNet)}</span> chips
         </p>
       )}
 
       <div className="space-y-2">
-        {standings.map(([playerId, cents], idx) => (
+        {standings.map(([playerId, net], idx) => (
           <div
             key={playerId}
             data-testid="standing-row"
@@ -787,9 +788,9 @@ function EndedView({
             <span className="font-medium">{nameOf(playerId)}</span>
             <span
               data-testid="standing-amount"
-              className={`font-bold ${cents < 0 ? "text-danger" : "text-brand-strong"}`}
+              className={`font-bold ${net < 0 ? "text-danger" : "text-brand-strong"}`}
             >
-              {money(cents)}
+              {chips(baseChips + net)}
             </span>
           </div>
         ))}

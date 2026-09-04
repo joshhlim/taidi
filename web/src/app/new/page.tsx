@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useStoredUser } from "@/lib/auth";
 import type { GameRules, GameType } from "@/lib/types";
-import type { MahjongRules } from "@/lib/mahjongTypes";
+import type { MahjongRules, TaiPayout } from "@/lib/mahjongTypes";
 
 const DEFAULT_RULES: GameRules = {
   card_value_cents: 20,
@@ -18,27 +18,27 @@ const DEFAULT_RULES: GameRules = {
   special_hand_cards: 5,
 };
 
+// "3/6 半" — a real Hong Kong-style stakes table. Money is chips, not
+// dollars; the tai payouts are non-linear (a 5-tai hand pays far more than
+// 5x a 1-tai hand), so this is a lookup table rather than a per-tai rate.
+const BAN_3_6_TABLE: Record<string, TaiPayout> = {
+  1: { hu: 4, zimo: 4 },
+  2: { hu: 7, zimo: 5 },
+  3: { hu: 11, zimo: 7 },
+  4: { hu: 20, zimo: 12 },
+  5: { hu: 40, zimo: 22 },
+};
+
 const DEFAULT_MAHJONG_RULES: MahjongRules = {
-  yao_unit_cents: 100,
-  gang_unit_cents: 100,
-  tai_unit_cents: 100,
-  zimo_unit_cents: 100,
-  max_tai: 10,
+  base_chips: 300,
+  yao_chips: 2,
+  gang_chips: 2,
+  max_tai: 5,
+  tai_table: BAN_3_6_TABLE,
 };
 
 const MAHJONG_PRESETS: { label: string; rules: MahjongRules }[] = [
-  {
-    label: "Casual",
-    rules: { yao_unit_cents: 50, gang_unit_cents: 50, tai_unit_cents: 50, zimo_unit_cents: 50, max_tai: 10 },
-  },
-  {
-    label: "Standard",
-    rules: { yao_unit_cents: 100, gang_unit_cents: 100, tai_unit_cents: 100, zimo_unit_cents: 100, max_tai: 10 },
-  },
-  {
-    label: "High Stakes",
-    rules: { yao_unit_cents: 200, gang_unit_cents: 200, tai_unit_cents: 200, zimo_unit_cents: 200, max_tai: 13 },
-  },
+  { label: "3/6 半", rules: DEFAULT_MAHJONG_RULES },
 ];
 
 const GAMES = [
@@ -107,6 +107,26 @@ export default function NewRoomPage() {
     setMahjongRules((r) => ({ ...r, [key]: value }));
   }
 
+  function setTaiRow(tai: number, field: keyof TaiPayout, value: number) {
+    setMahjongRules((r) => ({
+      ...r,
+      tai_table: {
+        ...r.tai_table,
+        [tai]: { ...(r.tai_table[tai] ?? { hu: 0, zimo: 0 }), [field]: value },
+      },
+    }));
+  }
+
+  function setMaxTai(newMax: number) {
+    setMahjongRules((r) => {
+      const table = { ...r.tai_table };
+      for (let t = r.max_tai + 1; t <= newMax; t++) {
+        table[t] = table[t] ?? { hu: 0, zimo: 0 };
+      }
+      return { ...r, max_tai: newMax, tai_table: table };
+    });
+  }
+
   async function handleCreate(gameType: GameType) {
     setBusy(true);
     setError(null);
@@ -170,7 +190,7 @@ export default function NewRoomPage() {
                 <button
                   key={p.label}
                   onClick={() => setMahjongRules(p.rules)}
-                  data-testid={`mahjong-preset-${p.label.toLowerCase().replace(" ", "-")}`}
+                  data-testid={`mahjong-preset-${p.label.toLowerCase().replace(/\s+/g, "-")}`}
                   className="rounded-xl border border-border bg-surface px-2 py-2 text-xs font-semibold"
                 >
                   {p.label}
@@ -179,63 +199,91 @@ export default function NewRoomPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="咬 YAO ($)">
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Base chips">
               <input
                 type="number"
-                step={0.05}
+                min={0}
+                data-testid="rule-base"
+                value={mahjongRules.base_chips}
+                onChange={(e) => setMahjong("base_chips", Math.max(0, Number(e.target.value) || 0))}
+                className={inputCls}
+              />
+            </Field>
+            <Field label="咬 YAO">
+              <input
+                type="number"
                 min={0}
                 data-testid="rule-yao"
-                value={mahjongRules.yao_unit_cents / 100}
-                onChange={(e) => setMahjong("yao_unit_cents", Math.round((Number(e.target.value) || 0) * 100))}
+                value={mahjongRules.yao_chips}
+                onChange={(e) => setMahjong("yao_chips", Math.max(0, Number(e.target.value) || 0))}
                 className={inputCls}
               />
             </Field>
-            <Field label="槓 GANG ($)">
+            <Field label="槓 GANG">
               <input
                 type="number"
-                step={0.05}
                 min={0}
                 data-testid="rule-gang"
-                value={mahjongRules.gang_unit_cents / 100}
-                onChange={(e) => setMahjong("gang_unit_cents", Math.round((Number(e.target.value) || 0) * 100))}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Per 台 TAI ($)">
-              <input
-                type="number"
-                step={0.05}
-                min={0}
-                data-testid="rule-tai"
-                value={mahjongRules.tai_unit_cents / 100}
-                onChange={(e) => setMahjong("tai_unit_cents", Math.round((Number(e.target.value) || 0) * 100))}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="自摸 Zimo per 台 ($)">
-              <input
-                type="number"
-                step={0.05}
-                min={0}
-                data-testid="rule-zimo"
-                value={mahjongRules.zimo_unit_cents / 100}
-                onChange={(e) => setMahjong("zimo_unit_cents", Math.round((Number(e.target.value) || 0) * 100))}
+                value={mahjongRules.gang_chips}
+                onChange={(e) => setMahjong("gang_chips", Math.max(0, Number(e.target.value) || 0))}
                 className={inputCls}
               />
             </Field>
           </div>
 
-          <Field label="Max 台 TAI">
-            <input
-              type="number"
-              min={1}
-              data-testid="rule-max-tai"
-              value={mahjongRules.max_tai}
-              onChange={(e) => setMahjong("max_tai", Math.max(1, Number(e.target.value) || 1))}
-              className={inputCls}
-            />
-          </Field>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted">台 TAI payouts (chips)</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMaxTai(Math.max(1, mahjongRules.max_tai - 1))}
+                  disabled={mahjongRules.max_tai <= 1}
+                  data-testid="tai-row-remove"
+                  className="h-7 w-7 rounded-full border border-border text-sm font-bold text-brand disabled:opacity-30"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMaxTai(mahjongRules.max_tai + 1)}
+                  data-testid="tai-row-add"
+                  className="h-7 w-7 rounded-full border border-border text-sm font-bold text-brand"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-[2.5rem_1fr_1fr] gap-2 items-center px-1 mb-1">
+              <span />
+              <span className="text-xs text-muted">Hu</span>
+              <span className="text-xs text-muted">Zimo (each)</span>
+            </div>
+            <div className="space-y-2">
+              {Array.from({ length: mahjongRules.max_tai }, (_, i) => i + 1).map((tai) => (
+                <div key={tai} className="grid grid-cols-[2.5rem_1fr_1fr] gap-2 items-center">
+                  <span className="text-xs font-semibold text-brand">{tai}台</span>
+                  <input
+                    type="number"
+                    min={0}
+                    data-testid={`rule-tai-${tai}-hu`}
+                    value={mahjongRules.tai_table[tai]?.hu ?? 0}
+                    onChange={(e) => setTaiRow(tai, "hu", Math.max(0, Number(e.target.value) || 0))}
+                    className={inputCls}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    data-testid={`rule-tai-${tai}-zimo`}
+                    value={mahjongRules.tai_table[tai]?.zimo ?? 0}
+                    onChange={(e) => setTaiRow(tai, "zimo", Math.max(0, Number(e.target.value) || 0))}
+                    className={inputCls}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
 
           {error && <p className="text-sm text-center text-danger">{error}</p>}
 

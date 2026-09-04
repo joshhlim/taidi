@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-09-04
+
+Mahjong now scores in chips against a real stakes table instead of a
+placeholder linear dollar rate.
+
+### Changed
+- `MahjongRules` money fields are now `base_chips`, `yao_chips`,
+  `gang_chips`, and a `tai_table` (a per-tai-level `{hu, zimo}` lookup,
+  since real mahjong payouts aren't linear in tai — a 5-tai hand pays far
+  more than 5x a 1-tai hand). Replaces `yao_unit_cents`/`gang_unit_cents`/
+  `tai_unit_cents`/`zimo_unit_cents`. `ENGINE_VERSION` bumped to
+  `mahjong-2`.
+- The default rules (and the New Room preset) are now a real table: "3/6
+  半" — base 300, yao 2, gang 2, tai 1-5 paying hu 4/7/11/20/40 and zimo
+  4/5/7/12/22.
+- The New Room Mahjong form now edits the tai table directly (a row per
+  tai level, add/remove rows as `max_tai` changes) instead of a single
+  linear rate.
+- The table UI displays each player's chip stack (`base_chips` + net),
+  not a raw profit/loss number — reads like real chips in front of them.
+
 ## [0.5.0] - 2026-09-03
 
 **Mahjong is live** — the second playable game (Phase E, the final slice of

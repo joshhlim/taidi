@@ -6,12 +6,22 @@ import type { Member, RoomStatus } from "./types";
 
 export type TransferKind = "yao" | "gang" | "hu" | "bao";
 
+export interface TaiPayout {
+  hu: number;
+  zimo: number;
+}
+
+// Money is chips, not cents — real mahjong stakes tables are non-linear by
+// tai (a 5-tai hand pays far more than 5x a 1-tai hand), hence a table
+// rather than a rate multiplied by tai. tai_table's keys are the tai level
+// as a string (1..max_tai) — JSON object keys are always strings, even
+// though the wire value started as a Python dict[int, TaiPayout].
 export interface MahjongRules {
-  yao_unit_cents: number;
-  gang_unit_cents: number;
-  tai_unit_cents: number;
-  zimo_unit_cents: number;
+  base_chips: number;
+  yao_chips: number;
+  gang_chips: number;
   max_tai: number;
+  tai_table: Record<string, TaiPayout>;
 }
 
 export interface MahjongTransfer {
