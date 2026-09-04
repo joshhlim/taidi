@@ -27,6 +27,11 @@ function seatLabel(seat: number) {
   return SEAT_LABELS[seat];
 }
 
+/** seatsFromMe (see TableView) is [you, next, opposite, previous] — this
+ * maps that order onto a diamond around the table: you at the bottom,
+ * the next seat clockwise on your right, the previous seat on your left. */
+const SEAT_POSITIONS = ["bottom", "right", "top", "left"] as const;
+
 export default function MahjongRoom({ roomId, me }: { roomId: string; me: string }) {
   const router = useRouter();
   const [banner, setBanner] = useState<string | null>(null);
@@ -328,45 +333,68 @@ function TableView({
   return (
     <div className="space-y-6">
       {hand && (
-        <div className="text-center">
-          <p data-testid="wind-dealer" className="text-xs uppercase tracking-widest text-muted">
-            Wind {hand.wind} · Dealer {seatLabel(hand.dealer_seat).han} {seatLabel(hand.dealer_seat).pinyin}
-            {" — "}
-            {bySeat[hand.dealer_seat]?.display_name ?? "?"}
-          </p>
+        <div
+          className="relative mx-auto grid w-full max-w-[19rem] items-center justify-items-center gap-2"
+          style={{
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gridTemplateAreas: `". top ." "left center right" ". bottom ."`,
+          }}
+        >
+          {seatsFromMe.map((seat, i) => {
+            const m = bySeat[seat];
+            if (!m) return null;
+            const label = seatLabel(seat);
+            const net = state.balances[m.player_id] ?? 0;
+            const stack = (state.rules?.base_chips ?? 0) + net;
+            const isDealer = seat === hand.dealer_seat;
+            return (
+              <div
+                key={m.player_id}
+                style={{ gridArea: SEAT_POSITIONS[i] }}
+                data-testid="standing-row"
+                data-player={m.display_name}
+                className={`flex flex-col items-center gap-0.5 rounded-xl border px-2 py-2 text-center text-xs ${
+                  isDealer ? "border-gold bg-[#FFF8E1]" : "border-border bg-surface"
+                }`}
+              >
+                <span className="text-[11px] font-bold text-brand">
+                  {label.han} {label.pinyin}
+                </span>
+                <span className="flex max-w-[6rem] items-baseline gap-1">
+                  <span className="truncate font-medium">{m.display_name}</span>
+                  {m.player_id === me && (
+                    <span className="shrink-0 text-muted">(you)</span>
+                  )}
+                </span>
+                <span
+                  data-testid="standing-amount"
+                  className={`font-bold ${net < 0 ? "text-danger" : "text-brand-strong"}`}
+                >
+                  {chips(stack)}
+                </span>
+              </div>
+            );
+          })}
+
+          <div
+            style={{ gridArea: "center" }}
+            className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold bg-[#FFF8E1]"
+          >
+            <span className="text-lg font-extrabold text-brand">
+              {seatLabel((hand.wind - 1) % 4).han}
+              {seatLabel(hand.dealer_seat).han}
+            </span>
+          </div>
         </div>
       )}
 
-      <div className="space-y-2">
-        {seatsFromMe.map((seat) => {
-          const m = bySeat[seat];
-          if (!m) return null;
-          const label = seatLabel(seat);
-          const net = state.balances[m.player_id] ?? 0;
-          const stack = (state.rules?.base_chips ?? 0) + net;
-          return (
-            <div
-              key={m.player_id}
-              data-testid="standing-row"
-              data-player={m.display_name}
-              className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
-                seat === hand?.dealer_seat ? "border-gold bg-[#FFF8E1]" : "border-border bg-surface"
-              }`}
-            >
-              <span className="font-medium">
-                <span className="text-xs font-bold text-brand mr-2">
-                  {label.han} {label.pinyin}
-                </span>
-                {m.display_name}
-                {m.player_id === me && <span className="ml-1 text-xs text-muted">(you)</span>}
-              </span>
-              <span data-testid="standing-amount" className={`font-bold ${net < 0 ? "text-danger" : "text-brand-strong"}`}>
-                {chips(stack)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {hand && (
+        <p data-testid="wind-dealer" className="text-center text-xs text-muted">
+          Wind {hand.wind} · Dealer {seatLabel(hand.dealer_seat).han} {seatLabel(hand.dealer_seat).pinyin}
+          {" — "}
+          {bySeat[hand.dealer_seat]?.display_name ?? "?"}
+        </p>
+      )}
 
       {action === null && (
         <div className="space-y-3">

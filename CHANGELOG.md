@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.5] - 2026-09-04
+
+### Changed
+- The Mahjong table view is now a diamond around the table instead of a
+  vertical list: you at the bottom, the next seat clockwise on your right,
+  the previous seat on your left, and the seat across from you at the
+  top. A circular badge in the center shows the current wind + dealer
+  seat as a compact two-character glyph (e.g. 東東 for wind 1 dealer seat
+  1, 西南 for wind 3 dealer seat 2). The dealer's card gets a gold
+  border/background, and your own card is tagged "(you)" — both can
+  appear on the same card at once without conflict.
+
 ## [0.5.4] - 2026-09-04
 
 ### Fixed
