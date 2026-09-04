@@ -104,7 +104,7 @@ async def test_yao_gang_hu_settle_correctly(make_device):
     state = r.json()
     assert state["balances"][dan.user_id] == -2 + 4  # Dan already paid Alice's YAO
     assert state["hands"][0]["closed"] is True
-    # A gang happened this hand -> dealer rotates to seat 1 (Bob).
+    # Dan (seat 3) isn't the dealer (seat 0) -> dealer rotates to seat 1 (Bob).
     assert len(state["hands"]) == 2
     assert state["hands"][1]["dealer_seat"] == 1
 

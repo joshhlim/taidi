@@ -412,9 +412,40 @@ class TestHu:
 
 
 class TestDealerWindRotation:
-    """Non-final-hand rule: a gang rotates the dealer; no gang repeats it."""
+    """Non-final-hand rule: on a WIN, the dealer stays if the dealer
+    themselves won and rotates otherwise — gang presence is irrelevant to
+    a win. On a NO WIN, the dealer stays unless a gang happened this hand,
+    in which case it rotates anyway."""
 
-    def test_no_gang_repeats_dealer_on_win(self, now):
+    def test_dealer_win_repeats_dealer(self, now):
+        state = _started_room(now)
+        state = machine.fold(
+            state,
+            machine.declare_hu(
+                state, expected_seq=state.seq, actor=A, mode="direct", target_seat=1, tai=1, now=now
+            ),
+        )
+        assert len(state.hands) == 2
+        assert state.hands[1].wind == 1
+        assert state.hands[1].dealer_seat == 0
+        assert not state.pending_wind_decision
+
+    def test_dealer_win_repeats_dealer_even_with_a_gang(self, now):
+        state = _started_room(now)
+        state = machine.fold(
+            state,
+            machine.declare_gang(state, expected_seq=state.seq, actor=B, target="angang", now=now),
+        )
+        state = machine.fold(
+            state,
+            machine.declare_hu(
+                state, expected_seq=state.seq, actor=A, mode="direct", target_seat=1, tai=1, now=now
+            ),
+        )
+        assert state.hands[1].dealer_seat == 0
+        assert state.hands[1].wind == 1
+
+    def test_non_dealer_win_rotates_dealer_even_without_a_gang(self, now):
         state = _started_room(now)
         state = machine.fold(
             state,
@@ -422,10 +453,8 @@ class TestDealerWindRotation:
                 state, expected_seq=state.seq, actor=D, mode="direct", target_seat=1, tai=1, now=now
             ),
         )
-        assert len(state.hands) == 2
+        assert state.hands[1].dealer_seat == 1
         assert state.hands[1].wind == 1
-        assert state.hands[1].dealer_seat == 0
-        assert not state.pending_wind_decision
 
     def test_no_gang_repeats_dealer_on_no_win(self, now):
         state = _started_room(now)
@@ -435,21 +464,6 @@ class TestDealerWindRotation:
         assert len(state.hands) == 2
         assert state.hands[1].wind == 1
         assert state.hands[1].dealer_seat == 0
-
-    def test_gang_rotates_dealer(self, now):
-        state = _started_room(now)
-        state = machine.fold(
-            state,
-            machine.declare_gang(state, expected_seq=state.seq, actor=B, target="angang", now=now),
-        )
-        state = machine.fold(
-            state,
-            machine.declare_hu(
-                state, expected_seq=state.seq, actor=D, mode="direct", target_seat=1, tai=1, now=now
-            ),
-        )
-        assert state.hands[1].dealer_seat == 1
-        assert state.hands[1].wind == 1
 
     def test_gang_on_no_win_still_rotates_dealer(self, now):
         state = _started_room(now)
@@ -463,39 +477,25 @@ class TestDealerWindRotation:
         assert state.hands[1].dealer_seat == 1
 
     def test_dealer_wrap_advances_wind(self, now):
-        # Drive seat 0..3 with no gangs so the dealer walks the whole wind,
-        # then one more no-gang win at seat 3 should NOT advance (that's the
-        # final-hand rule, covered separately) — so gang seat 3 explicitly to
-        # prove the wrap-to-wind-2 case here instead.
+        """Each hand won by whoever's next in seat order rotates the dealer
+        one seat; wrapping seat 3->0 advances the wind — pure win-based
+        rotation, no gangs involved."""
         state = _started_room(now)
-        for _ in range(3):
+        for winner in (B, C, D, A):
             state = machine.fold(
                 state,
                 machine.declare_hu(
                     state,
                     expected_seq=state.seq,
-                    actor=D,
+                    actor=winner,
                     mode="direct",
-                    target_seat=1,
+                    target_seat=(state.members[winner].seat + 1) % 4,
                     tai=1,
                     now=now,
                 ),
             )
         assert state.hands[-1].dealer_seat == 0
-        assert state.hands[-1].wind == 1
-        # Now gang at seat 0 then win — rotates to seat 1, still wind 1.
-        state = machine.fold(
-            state,
-            machine.declare_gang(state, expected_seq=state.seq, actor=A, target="angang", now=now),
-        )
-        state = machine.fold(
-            state,
-            machine.declare_hu(
-                state, expected_seq=state.seq, actor=D, mode="direct", target_seat=1, tai=1, now=now
-            ),
-        )
-        assert state.hands[-1].dealer_seat == 1
-        assert state.hands[-1].wind == 1
+        assert state.hands[-1].wind == 2
 
 
 class TestFinalHandRule:

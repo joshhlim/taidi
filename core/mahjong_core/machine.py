@@ -9,14 +9,16 @@ advancement.
 Design notes:
 - Seats are fixed 0-3 slots, defaulting to join order; the host can
   rearrange them with assign_seats before starting.
-- Dealer/wind rule (confirmed with the product owner — not standard
-  mahjong): outside the last seat of the last wind, a hand with any GANG
-  rotates the dealer to the next seat (wrapping seat 3->0 advances the
-  wind); a hand with no GANG repeats the same dealer. The last seat of the
-  last wind is different: it only closes the wind cycle on a WIN — a
-  no-win hand there just repeats, regardless of GANGs. Cycle completion
-  sets pending_wind_decision; only the host's continue_wind or end_game can
-  proceed from there.
+- Dealer/wind rule (confirmed with the product owner — close to standard
+  mahjong but not identical): outside the last seat of the last wind, a WIN
+  rotates the dealer to the next seat unless the dealer themselves won (in
+  which case they stay) — GANG presence doesn't affect a win. A NO WIN
+  repeats the same dealer unless a GANG happened this hand, in which case
+  it rotates anyway. Either way, wrapping seat 3->0 advances the wind. The
+  last seat of the last wind is different: it only closes the wind cycle
+  on a WIN, regardless of who won — a no-win hand there just repeats,
+  regardless of GANGs. Cycle completion sets pending_wind_decision; only
+  the host's continue_wind or end_game can proceed from there.
 - Closing a hand (HU or NO_WIN) computes the dealer/wind outcome up front
   (`_plan_hand_close`) and folds it into the event payload, so apply() never
   recomputes it — replay stays exact even if the rule itself changes later
@@ -310,10 +312,15 @@ def declare_gang(
     ]
 
 
-def _plan_hand_close(hand: HandState, *, is_win: bool) -> dict[str, Any]:
+def _plan_hand_close(hand: HandState, *, is_win: bool, should_rotate: bool) -> dict[str, Any]:
     """Computes the dealer/wind outcome of closing `hand`. Pure — doesn't
     touch RoomState. Folded into the closing event's payload so apply()
-    never recomputes it and replay stays exact."""
+    never recomputes it and replay stays exact.
+
+    `should_rotate` is the caller's job to compute: on a win it's "the
+    dealer didn't win"; on a no-win it's "a gang happened this hand". The
+    last seat of the last wind ignores it — only a WIN closes that cycle,
+    and a no-win there just repeats regardless of gangs."""
     is_final_hand = hand.wind == MAX_WINDS and hand.dealer_seat == SEAT_COUNT - 1
 
     if is_final_hand:
@@ -323,7 +330,7 @@ def _plan_hand_close(hand: HandState, *, is_win: bool) -> dict[str, Any]:
             "next_dealer_seat": hand.dealer_seat,
         }
 
-    if hand.had_gang:
+    if should_rotate:
         next_seat = (hand.dealer_seat + 1) % SEAT_COUNT
         next_wind = hand.wind + 1 if next_seat == 0 else hand.wind
     else:
@@ -424,7 +431,9 @@ def declare_hu(
                 )
             )
 
-    close = _plan_hand_close(hand, is_win=True)
+    close = _plan_hand_close(
+        hand, is_win=True, should_rotate=state.members[actor].seat != hand.dealer_seat
+    )
     payload = {
         "hand_no": hand.hand_no,
         "mode": mode,
@@ -456,7 +465,7 @@ def declare_no_win(
     _require_in_progress(state)
     _require_member(state, actor)
     hand = _require_open_hand(state)
-    close = _plan_hand_close(hand, is_win=False)
+    close = _plan_hand_close(hand, is_win=False, should_rotate=hand.had_gang)
     payload = {"hand_no": hand.hand_no, **close}
     return [
         _mk_event(

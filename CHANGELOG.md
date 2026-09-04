@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.4] - 2026-09-04
+
+### Fixed
+- Mahjong dealer/wind rotation was gang-driven for every hand close, which
+  didn't match the intended rule. It's now: on a WIN, the dealer stays if
+  the dealer themselves won and rotates otherwise (gang presence no longer
+  matters for a win); on a NO WIN, the dealer stays unless a gang happened
+  this hand, in which case it still rotates. The last seat of the last
+  wind is unchanged — only a WIN closes that cycle.
+
 ## [0.5.3] - 2026-09-04
 
 ### Added

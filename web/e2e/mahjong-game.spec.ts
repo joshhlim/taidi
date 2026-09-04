@@ -99,17 +99,17 @@ test("a full hand across four simulated devices", async ({ browser }) => {
       await expect(amountFor(p, "Alice")).toHaveText("306", { timeout: 10_000 }); // 300 + 3*2
     }
 
-    // Bob declares ANGANG: each of the other 3 pays gang_chips*2=4, and the
-    // hand is now flagged as having had a gang (visible via dealer rotation
-    // later). Bob already paid 2 into Alice's YAO, so his net is -2+12=10.
+    // Bob declares ANGANG: each of the other 3 pays gang_chips*2=4. Bob
+    // already paid 2 into Alice's YAO, so his net is -2+12=10.
     await bob.getByTestId("gang-btn").click();
     await bob.getByTestId("pick-angang").click();
     for (const p of [alice, bob, cara, dan]) {
       await expect(amountFor(p, "Bob")).toHaveText("310", { timeout: 10_000 }); // 300 - 2 + 3*4
     }
 
-    // Dan directly HUs off Cara (seat 2) at 2 tai — closes the hand. A gang
-    // happened this hand, so the dealer should rotate for hand 2.
+    // Dan directly HUs off Cara (seat 2) at 2 tai — closes the hand. Dan
+    // (seat 3) isn't the dealer (seat 0), so the dealer rotates for hand 2
+    // regardless of the earlier gang.
     await dan.getByTestId("hu-btn").click();
     await dan.getByTestId("pick-seat-2").click();
     await dan.getByTestId("tai-plus").click();
