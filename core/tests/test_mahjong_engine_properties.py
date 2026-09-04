@@ -36,6 +36,8 @@ def mahjong_rules(draw):
         base_chips=draw(st.integers(min_value=0, max_value=1000)),
         yao_chips=draw(st.integers(min_value=0, max_value=50)),
         gang_chips=draw(st.integers(min_value=0, max_value=50)),
+        zimo_bonus_chips=draw(st.integers(min_value=0, max_value=50)),
+        klppdd_chips=draw(st.integers(min_value=0, max_value=50)),
         max_tai=max_tai,
         tai_table=table,
     )
@@ -186,6 +188,90 @@ def test_bao_charges_full_zimo_total_to_one_player(rules, actor_idx, target_offs
         ),
     )
     expected = rules.tai_table[tai].zimo * 3
+    assert after.balances[actor] - before.balances[actor] == expected
+    assert before.balances[target] - after.balances[target] == expected
+    assert _others_never_gain(before, after, actor)
+
+
+@given(rules=mahjong_rules(), actor_idx=st.integers(0, 3), tai_offset=st.integers(0, 100))
+@settings(max_examples=200)
+def test_zimo_bonus_matches_formula(rules, actor_idx, tai_offset):
+    tai = 1 + tai_offset % rules.max_tai
+    state = _started_room(rules)
+    actor = SEATS[actor_idx]
+    before = state
+    after = machine.fold(
+        state,
+        machine.declare_hu(
+            state,
+            expected_seq=state.seq,
+            actor=actor,
+            mode="zimo",
+            target_seat=None,
+            tai=tai,
+            zimo_bonus=True,
+            now=NOW,
+        ),
+    )
+    expected = (rules.tai_table[tai].zimo + rules.zimo_bonus_chips) * 3
+    assert after.balances[actor] - before.balances[actor] == expected
+    assert _others_never_gain(before, after, actor)
+
+
+@given(rules=mahjong_rules(), actor_idx=st.integers(0, 3), tai_offset=st.integers(0, 100))
+@settings(max_examples=200)
+def test_klppdd_on_zimo_splits_three_ways(rules, actor_idx, tai_offset):
+    tai = 1 + tai_offset % rules.max_tai
+    state = _started_room(rules)
+    actor = SEATS[actor_idx]
+    before = state
+    after = machine.fold(
+        state,
+        machine.declare_hu(
+            state,
+            expected_seq=state.seq,
+            actor=actor,
+            mode="zimo",
+            target_seat=None,
+            tai=tai,
+            klppdd=True,
+            now=NOW,
+        ),
+    )
+    expected = (rules.tai_table[tai].zimo + rules.klppdd_chips) * 3
+    assert after.balances[actor] - before.balances[actor] == expected
+    assert _others_never_gain(before, after, actor)
+
+
+@given(
+    rules=mahjong_rules(),
+    actor_idx=st.integers(0, 3),
+    target_offset=st.integers(1, 3),
+    tai_offset=st.integers(0, 100),
+)
+@settings(max_examples=200)
+def test_klppdd_on_direct_win_paid_in_full_by_single_target(
+    rules, actor_idx, target_offset, tai_offset
+):
+    tai = 1 + tai_offset % rules.max_tai
+    target_idx = (actor_idx + target_offset) % 4
+    state = _started_room(rules)
+    actor, target = SEATS[actor_idx], SEATS[target_idx]
+    before = state
+    after = machine.fold(
+        state,
+        machine.declare_hu(
+            state,
+            expected_seq=state.seq,
+            actor=actor,
+            mode="direct",
+            target_seat=target_idx,
+            tai=tai,
+            klppdd=True,
+            now=NOW,
+        ),
+    )
+    expected = rules.tai_table[tai].hu + rules.klppdd_chips * 3
     assert after.balances[actor] - before.balances[actor] == expected
     assert before.balances[target] - after.balances[target] == expected
     assert _others_never_gain(before, after, actor)

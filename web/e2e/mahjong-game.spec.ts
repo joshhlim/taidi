@@ -20,6 +20,18 @@ async function createMahjongRoom(page: Page) {
   await expect(page).toHaveURL(/\/room\//);
 }
 
+/** Same as createMahjongRoom, but sets a nonzero zimo bonus and KLPPDD
+ * amount on the rules form first, to exercise both optional bonuses. */
+async function createMahjongRoomWithBonuses(page: Page) {
+  await page.getByTestId("new-room-btn").click();
+  await expect(page).toHaveURL(/\/new/);
+  await page.getByTestId("game-tile-mahjong").click();
+  await page.getByTestId("rule-zimo-bonus").fill("5");
+  await page.getByTestId("rule-klppdd").fill("10");
+  await page.getByTestId("create-room-btn").click();
+  await expect(page).toHaveURL(/\/room\//);
+}
+
 function amountFor(page: Page, name: string) {
   return page
     .locator(`[data-testid="standing-row"][data-player^="${name}"] [data-testid="standing-amount"]`)
@@ -97,6 +109,63 @@ test("a full hand across four simulated devices", async ({ browser }) => {
     for (const p of [alice, bob, cara, dan]) {
       await expect(p.getByTestId("game-over")).toBeVisible({ timeout: 10_000 });
       await expect(p.getByTestId("standing-row")).toHaveCount(4);
+    }
+  } finally {
+    await Promise.all(contexts.map((c) => c.close()));
+  }
+});
+
+test("zimo bonus and KLPPDD toggles add on top of the tai payout", async ({ browser }) => {
+  const contexts = await Promise.all([0, 1, 2, 3].map(() => browser.newContext()));
+  const [alice, bob, cara, dan] = await Promise.all(contexts.map((c) => c.newPage()));
+
+  try {
+    const uniq = Date.now().toString(36);
+    await login(alice, `Alice-${uniq}`);
+    await login(bob, `Bob-${uniq}`);
+    await login(cara, `Cara-${uniq}`);
+    await login(dan, `Dan-${uniq}`);
+
+    await createMahjongRoomWithBonuses(alice);
+    const inviteCode = (await alice.getByTestId("invite-code").textContent())?.trim();
+
+    for (const p of [bob, cara, dan]) {
+      await p.getByTestId("room-code-input").fill(inviteCode!);
+      await p.getByTestId("join-room-btn").click();
+      await expect(p).toHaveURL(/\/room\//);
+    }
+    for (const p of [alice, bob, cara, dan]) {
+      await expect(p.getByTestId("lobby-member")).toHaveCount(4, { timeout: 10_000 });
+    }
+
+    await alice.getByTestId("start-game-btn").click();
+    for (const p of [alice, bob, cara, dan]) {
+      await expect(p.getByTestId("yao-btn")).toBeVisible({ timeout: 10_000 });
+    }
+
+    // Alice self-draws at 1 tai (default table: hu=4/zimo=4) with the zimo
+    // bonus (5) and KLPPDD (10) both on: each of the other 3 pays
+    // 4 + 5 + 10 = 19.
+    await alice.getByTestId("hu-btn").click();
+    await alice.getByTestId("pick-seat-0").click();
+    await alice.getByTestId("zimo-bonus-toggle").click();
+    await alice.getByTestId("klppdd-toggle").click();
+    await alice.getByTestId("confirm-hu-btn").click();
+    for (const p of [alice, bob, cara, dan]) {
+      await expect(amountFor(p, "Alice")).toHaveText("357", { timeout: 10_000 }); // 300 + 3*19
+      await expect(amountFor(p, "Bob")).toHaveText("281", { timeout: 10_000 }); // 300 - 19
+    }
+
+    // Bob directly HUs off Cara (seat 2) at 1 tai with KLPPDD on (no zimo
+    // bonus option for a direct win): Cara alone pays 4 + 3*10 = 34.
+    await bob.getByTestId("hu-btn").click();
+    await bob.getByTestId("pick-seat-2").click();
+    await expect(bob.getByTestId("zimo-bonus-toggle")).toHaveCount(0);
+    await bob.getByTestId("klppdd-toggle").click();
+    await bob.getByTestId("confirm-hu-btn").click();
+    for (const p of [alice, bob, cara, dan]) {
+      await expect(amountFor(p, "Bob")).toHaveText("315", { timeout: 10_000 }); // 281 + 34
+      await expect(amountFor(p, "Cara")).toHaveText("247", { timeout: 10_000 }); // 281 - 34
     }
   } finally {
     await Promise.all(contexts.map((c) => c.close()));

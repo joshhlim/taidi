@@ -21,6 +21,8 @@ def test_default_rules_are_the_3_6_ban_preset():
     assert rules.base_chips == 300
     assert rules.yao_chips == 2
     assert rules.gang_chips == 2
+    assert rules.zimo_bonus_chips == 0
+    assert rules.klppdd_chips == 0
     assert rules.max_tai == 5
     for tai, (hu, zimo) in EXPECTED.items():
         assert rules.tai_table[tai].hu == hu

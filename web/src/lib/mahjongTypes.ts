@@ -4,7 +4,7 @@
 
 import type { Member, RoomStatus } from "./types";
 
-export type TransferKind = "yao" | "gang" | "hu" | "bao";
+export type TransferKind = "yao" | "gang" | "hu" | "bao" | "zimo_bonus" | "klppdd";
 
 export interface TaiPayout {
   hu: number;
@@ -20,6 +20,10 @@ export interface MahjongRules {
   base_chips: number;
   yao_chips: number;
   gang_chips: number;
+  // Optional extra bonuses toggled per-HU (see MahjongRoom's HuFlow). Both
+  // default to 0 (off).
+  zimo_bonus_chips: number;
+  klppdd_chips: number;
   max_tai: number;
   tai_table: Record<string, TaiPayout>;
 }

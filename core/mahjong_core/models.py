@@ -58,12 +58,27 @@ class MahjongRules(BaseModel):
     base_chips: int = 300
     yao_chips: int = 2
     gang_chips: int = 2
+    # Optional extra bonuses layered on top of a HU's tai payout, each
+    # toggled per-declaration (see machine.declare_hu). zimo_bonus only
+    # applies to a self-drawn win; klppdd applies to any win and mirrors
+    # whichever payer structure that win already uses (split 3 ways on a
+    # zimo, paid in full by the single payer on a direct/bao win). Both
+    # default to 0 (off) so existing presets are unaffected.
+    zimo_bonus_chips: int = 0
+    klppdd_chips: int = 0
     max_tai: int = 5
     tai_table: dict[int, TaiPayout] = Field(default_factory=lambda: dict(_DEFAULT_TAI_TABLE))
 
     @model_validator(mode="after")
     def _validate(self) -> MahjongRules:
-        if min(self.base_chips, self.yao_chips, self.gang_chips) < 0:
+        values = (
+            self.base_chips,
+            self.yao_chips,
+            self.gang_chips,
+            self.zimo_bonus_chips,
+            self.klppdd_chips,
+        )
+        if min(values) < 0:
             raise ValueError("Rule values can't be negative.")
         if self.max_tai < 1:
             raise ValueError("max_tai must be at least 1.")
@@ -74,9 +89,15 @@ class MahjongRules(BaseModel):
 
     def describe(self) -> str:
         top = self.tai_table[self.max_tai]
+        extras = []
+        if self.zimo_bonus_chips:
+            extras.append(f"zimo bonus {self.zimo_bonus_chips}")
+        if self.klppdd_chips:
+            extras.append(f"klppdd {self.klppdd_chips}")
+        extra = f" · {' · '.join(extras)}" if extras else ""
         return (
             f"base {self.base_chips} chips · yao {self.yao_chips} · gang {self.gang_chips} · "
-            f"up to {self.max_tai} tai (hu {top.hu} / zimo {top.zimo})"
+            f"up to {self.max_tai} tai (hu {top.hu} / zimo {top.zimo}){extra}"
         )
 
 
@@ -85,6 +106,8 @@ class TransferKind(StrEnum):
     GANG = "gang"
     HU = "hu"
     BAO = "bao"
+    ZIMO_BONUS = "zimo_bonus"
+    KLPPDD = "klppdd"
 
 
 class Transfer(BaseModel):

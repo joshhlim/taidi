@@ -33,6 +33,8 @@ const DEFAULT_MAHJONG_RULES: MahjongRules = {
   base_chips: 300,
   yao_chips: 2,
   gang_chips: 2,
+  zimo_bonus_chips: 0,
+  klppdd_chips: 0,
   max_tai: 5,
   tai_table: BAN_3_6_TABLE,
 };
@@ -227,6 +229,31 @@ export default function NewRoomPage() {
                 data-testid="rule-gang"
                 value={mahjongRules.gang_chips}
                 onChange={(e) => setMahjong("gang_chips", Math.max(0, Number(e.target.value) || 0))}
+                className={inputCls}
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Zimo bonus (optional)">
+              <input
+                type="number"
+                min={0}
+                data-testid="rule-zimo-bonus"
+                value={mahjongRules.zimo_bonus_chips}
+                onChange={(e) =>
+                  setMahjong("zimo_bonus_chips", Math.max(0, Number(e.target.value) || 0))
+                }
+                className={inputCls}
+              />
+            </Field>
+            <Field label="KLPPDD (optional)">
+              <input
+                type="number"
+                min={0}
+                data-testid="rule-klppdd"
+                value={mahjongRules.klppdd_chips}
+                onChange={(e) => setMahjong("klppdd_chips", Math.max(0, Number(e.target.value) || 0))}
                 className={inputCls}
               />
             </Field>

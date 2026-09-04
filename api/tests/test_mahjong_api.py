@@ -109,6 +109,78 @@ async def test_yao_gang_hu_settle_correctly(make_device):
     assert state["hands"][1]["dealer_seat"] == 1
 
 
+async def test_zimo_bonus_and_klppdd_settle_correctly(make_device):
+    room_id, invite_code, (alice, bob, cara, dan) = await _full_table(make_device)
+    state = (await alice.get(f"/rooms/{room_id}/state")).json()
+    state = (
+        await alice.post(
+            f"/rooms/{room_id}/mahjong/start",
+            json={
+                "expected_seq": state["seq"],
+                "rules": {"zimo_bonus_chips": 5, "klppdd_chips": 10},
+            },
+        )
+    ).json()
+
+    # Alice self-draws at 1 tai (hu(1)=4/zimo(1)=4) with both bonuses on:
+    # each of the other 3 pays 4 + 5 + 10 = 19.
+    r = await alice.post(
+        f"/rooms/{room_id}/mahjong/hu",
+        json={
+            "expected_seq": state["seq"],
+            "mode": "zimo",
+            "target_seat": None,
+            "tai": 1,
+            "zimo_bonus": True,
+            "klppdd": True,
+        },
+    )
+    assert r.status_code == 200, r.text
+    state = r.json()
+    assert state["balances"][alice.user_id] == 19 * 3
+    assert state["balances"][bob.user_id] == -19
+
+    # Dan HUs directly off Bob (seat 1) at 1 tai with klppdd on: Bob alone
+    # pays hu(1)=4 + 3*10 klppdd = 34.
+    r = await dan.post(
+        f"/rooms/{room_id}/mahjong/hu",
+        json={
+            "expected_seq": state["seq"],
+            "mode": "direct",
+            "target_seat": 1,
+            "tai": 1,
+            "klppdd": True,
+        },
+    )
+    assert r.status_code == 200, r.text
+    state = r.json()
+    assert state["balances"][dan.user_id] == -19 + 34
+    assert state["balances"][bob.user_id] == -19 - 34
+
+
+async def test_zimo_bonus_rejected_on_direct_win(make_device):
+    room_id, invite_code, (alice, bob, cara, dan) = await _full_table(make_device)
+    state = (await alice.get(f"/rooms/{room_id}/state")).json()
+    state = (
+        await alice.post(
+            f"/rooms/{room_id}/mahjong/start",
+            json={"expected_seq": state["seq"], "rules": {"zimo_bonus_chips": 5}},
+        )
+    ).json()
+
+    r = await dan.post(
+        f"/rooms/{room_id}/mahjong/hu",
+        json={
+            "expected_seq": state["seq"],
+            "mode": "direct",
+            "target_seat": 1,
+            "tai": 1,
+            "zimo_bonus": True,
+        },
+    )
+    assert r.status_code == 400
+
+
 async def test_no_win_repeats_dealer_when_no_gang(make_device):
     room_id, invite_code, (alice, bob, cara, dan) = await _full_table(make_device)
     state = (await alice.get(f"/rooms/{room_id}/state")).json()

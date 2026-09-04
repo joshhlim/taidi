@@ -305,6 +305,111 @@ class TestHu:
                 state, expected_seq=state.seq, actor=A, mode="bao", target_seat=0, tai=1, now=now
             )
 
+    def test_zimo_bonus_adds_flat_amount_from_each_other_player(self, now):
+        state = _started_room(now, _tai_rules(zimo_bonus_chips=5))
+        state = machine.fold(
+            state,
+            machine.declare_hu(
+                state,
+                expected_seq=state.seq,
+                actor=A,
+                mode="zimo",
+                target_seat=None,
+                tai=2,
+                zimo_bonus=True,
+                now=now,
+            ),
+        )
+        # zimo(2)=100 each + 5 bonus each, from 3 payers = 315
+        assert state.balances[A] == 315
+        assert state.balances[B] == state.balances[C] == state.balances[D] == -105
+
+    def test_zimo_bonus_rejected_on_direct_or_bao(self, now):
+        state = _started_room(now, _tai_rules(zimo_bonus_chips=5))
+        with pytest.raises(IllegalTransition):
+            machine.declare_hu(
+                state,
+                expected_seq=state.seq,
+                actor=A,
+                mode="direct",
+                target_seat=1,
+                tai=1,
+                zimo_bonus=True,
+                now=now,
+            )
+        with pytest.raises(IllegalTransition):
+            machine.declare_hu(
+                state,
+                expected_seq=state.seq,
+                actor=A,
+                mode="bao",
+                target_seat=1,
+                tai=1,
+                zimo_bonus=True,
+                now=now,
+            )
+
+    def test_klppdd_splits_three_ways_on_zimo(self, now):
+        state = _started_room(now, _tai_rules(klppdd_chips=10))
+        state = machine.fold(
+            state,
+            machine.declare_hu(
+                state,
+                expected_seq=state.seq,
+                actor=A,
+                mode="zimo",
+                target_seat=None,
+                tai=1,
+                klppdd=True,
+                now=now,
+            ),
+        )
+        # zimo(1)=50 each + 10 klppdd each, from 3 payers = 180
+        assert state.balances[A] == 180
+        assert state.balances[B] == state.balances[C] == state.balances[D] == -60
+
+    def test_klppdd_single_payer_covers_everyone_on_direct_win(self, now):
+        state = _started_room(now, _tai_rules(klppdd_chips=10))
+        state = machine.fold(
+            state,
+            machine.declare_hu(
+                state,
+                expected_seq=state.seq,
+                actor=A,
+                mode="direct",
+                target_seat=1,
+                tai=1,
+                klppdd=True,
+                now=now,
+            ),
+        )
+        # hu(1)=100 + 3*10 klppdd, all from B
+        assert state.balances[A] == 130
+        assert state.balances[B] == -130
+        assert state.balances[C] == 0
+        assert state.balances[D] == 0
+
+    def test_klppdd_stacks_with_bao(self, now):
+        state = _started_room(now, _tai_rules(klppdd_chips=10))
+        state = machine.fold(
+            state,
+            machine.declare_hu(
+                state,
+                expected_seq=state.seq,
+                actor=A,
+                mode="bao",
+                target_seat=1,
+                tai=1,
+                klppdd=True,
+                now=now,
+            ),
+        )
+        # bao(1)=zimo(1)*3=150 + 3*10 klppdd, all from B
+        assert state.balances[A] == 180
+        assert state.balances[B] == -180
+        assert state.balances[C] == 0
+        assert state.balances[D] == 0
+
 
 class TestDealerWindRotation:
     """Non-final-hand rule: a gang rotates the dealer; no gang repeats it."""

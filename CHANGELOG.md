@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] - 2026-09-04
+
+Two optional Mahjong HU bonuses, on top of the tai payout: a zimo bonus and
+KLPPDD.
+
+### Added
+- `MahjongRules.zimo_bonus_chips` (default 0): a flat extra amount each of
+  the other 3 players pays a self-drawn (zimo) winner, toggled per-hand.
+  Not available on a direct or bao win.
+- `MahjongRules.klppdd_chips` (default 0): a flat extra amount toggled
+  per-hand on any win. It mirrors whatever payer structure the win already
+  uses — split 3 ways on a zimo win, paid in full (×3) by the single payer
+  on a direct or bao win. Stacks independently with BAO and with the zimo
+  bonus. `ENGINE_VERSION` bumped to `mahjong-3`.
+- `declare_hu` takes new `zimo_bonus`/`klppdd` booleans; the `/hu` endpoint
+  and `HuFlow` UI expose them as toggle buttons in the tai-selection step
+  (zimo bonus only shown for a self-draw). The New Room Mahjong form gained
+  matching optional rule inputs.
+
 ## [0.5.1] - 2026-09-04
 
 Mahjong now scores in chips against a real stakes table instead of a

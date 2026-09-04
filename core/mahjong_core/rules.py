@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from .models import MahjongRules
 
-ENGINE_VERSION = "mahjong-2"
+ENGINE_VERSION = "mahjong-3"
 
 
 def yao_amount(rules: MahjongRules, an: bool) -> int:
@@ -41,3 +41,15 @@ def hu_amount_zimo_each(rules: MahjongRules, tai: int) -> int:
 
 def hu_amount_bao(rules: MahjongRules, tai: int) -> int:
     return rules.tai_table[tai].zimo * 3
+
+
+def zimo_bonus_amount(rules: MahjongRules) -> int:
+    return rules.zimo_bonus_chips
+
+
+def klppdd_amount_each(rules: MahjongRules) -> int:
+    return rules.klppdd_chips
+
+
+def klppdd_amount_single_payer(rules: MahjongRules) -> int:
+    return rules.klppdd_chips * 3

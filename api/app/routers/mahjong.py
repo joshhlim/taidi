@@ -237,6 +237,8 @@ async def hu(
             mode=body.mode,
             target_seat=body.target_seat,
             tai=body.tai,
+            zimo_bonus=body.zimo_bonus,
+            klppdd=body.klppdd,
             now=utcnow(),
         ),
     )

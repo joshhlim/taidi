@@ -455,8 +455,10 @@ function TableView({
           busy={busy}
           maxTai={state.rules?.max_tai ?? 10}
           onCancel={reset}
-          onSubmit={(mode, targetSeat, tai) =>
-            run((seq) => mahjongApi.declareHu(roomId, seq, mode, targetSeat, tai)).then((r) => {
+          onSubmit={(mode, targetSeat, tai, zimoBonus, klppdd) =>
+            run((seq) =>
+              mahjongApi.declareHu(roomId, seq, mode, targetSeat, tai, zimoBonus, klppdd),
+            ).then((r) => {
               if (r) {
                 setData(r);
                 reset();
@@ -608,12 +610,20 @@ function HuFlow({
   busy: boolean;
   maxTai: number;
   onCancel: () => void;
-  onSubmit: (mode: "direct" | "zimo" | "bao", targetSeat: number | null, tai: number) => void;
+  onSubmit: (
+    mode: "direct" | "zimo" | "bao",
+    targetSeat: number | null,
+    tai: number,
+    zimoBonus: boolean,
+    klppdd: boolean,
+  ) => void;
 }) {
   const [step, setStep] = useState<"pick" | "pick-bao" | "tai">("pick");
   const [mode, setMode] = useState<"direct" | "zimo" | "bao">("direct");
   const [targetSeat, setTargetSeat] = useState<number | null>(null);
   const [tai, setTai] = useState(1);
+  const [zimoBonus, setZimoBonus] = useState(false);
+  const [klppdd, setKlppdd] = useState(false);
   const mySeat = Object.values(bySeat).find((m) => m?.player_id === me)?.seat;
 
   if (step === "pick") {
@@ -689,8 +699,34 @@ function HuFlow({
           +
         </button>
       </div>
+      <div className="space-y-2">
+        {mode === "zimo" && (
+          <button
+            type="button"
+            onClick={() => setZimoBonus((v) => !v)}
+            data-testid="zimo-bonus-toggle"
+            aria-pressed={zimoBonus}
+            className={`w-full rounded-xl border px-3 py-2.5 text-sm font-semibold ${
+              zimoBonus ? "border-brand-strong bg-[#FFF8E1] text-brand" : "border-border bg-surface text-muted"
+            }`}
+          >
+            Zimo bonus{zimoBonus ? " ✓" : ""}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setKlppdd((v) => !v)}
+          data-testid="klppdd-toggle"
+          aria-pressed={klppdd}
+          className={`w-full rounded-xl border px-3 py-2.5 text-sm font-semibold ${
+            klppdd ? "border-brand-strong bg-[#FFF8E1] text-brand" : "border-border bg-surface text-muted"
+          }`}
+        >
+          KLPPDD{klppdd ? " ✓" : ""}
+        </button>
+      </div>
       <button
-        onClick={() => onSubmit(mode, targetSeat, tai)}
+        onClick={() => onSubmit(mode, targetSeat, tai, zimoBonus, klppdd)}
         disabled={busy}
         data-testid="confirm-hu-btn"
         className="w-full rounded-xl bg-brand py-4 text-base font-bold text-white disabled:opacity-50"

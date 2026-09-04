@@ -41,7 +41,10 @@ from .rules import (
     hu_amount_bao,
     hu_amount_direct,
     hu_amount_zimo_each,
+    klppdd_amount_each,
+    klppdd_amount_single_payer,
     yao_amount,
+    zimo_bonus_amount,
 )
 
 SEAT_COUNT = 4
@@ -337,6 +340,8 @@ def declare_hu(
     mode: Literal["direct", "zimo", "bao"],
     target_seat: int | None,
     tai: int,
+    zimo_bonus: bool = False,
+    klppdd: bool = False,
     now: datetime | None = None,
     event_id: UUID | None = None,
 ) -> list[Event]:
@@ -347,6 +352,8 @@ def declare_hu(
     assert state.rules is not None
     if not 1 <= tai <= state.rules.max_tai:
         raise IllegalTransition(f"Tai must be between 1 and {state.rules.max_tai}.")
+    if zimo_bonus and mode != "zimo":
+        raise IllegalTransition("Zimo bonus only applies to a self-drawn win.")
 
     if mode == "zimo":
         amount = hu_amount_zimo_each(state.rules, tai)
@@ -361,6 +368,30 @@ def declare_hu(
             )
             for p in others
         ]
+        if zimo_bonus:
+            bonus = zimo_bonus_amount(state.rules)
+            transfers += [
+                Transfer(
+                    from_player=p,
+                    to_player=actor,
+                    amount_cents=bonus,
+                    kind=TransferKind.ZIMO_BONUS,
+                    hand_no=hand.hand_no,
+                )
+                for p in others
+            ]
+        if klppdd:
+            bonus = klppdd_amount_each(state.rules)
+            transfers += [
+                Transfer(
+                    from_player=p,
+                    to_player=actor,
+                    amount_cents=bonus,
+                    kind=TransferKind.KLPPDD,
+                    hand_no=hand.hand_no,
+                )
+                for p in others
+            ]
     else:
         if target_seat is None:
             raise IllegalTransition(f"{mode} needs a target seat.")
@@ -369,26 +400,29 @@ def declare_hu(
             raise IllegalTransition("Can't target yourself for a direct or bao win.")
         if mode == "direct":
             amount = hu_amount_direct(state.rules, tai)
-            transfers = [
-                Transfer(
-                    from_player=target_player,
-                    to_player=actor,
-                    amount_cents=amount,
-                    kind=TransferKind.HU,
-                    hand_no=hand.hand_no,
-                )
-            ]
+            kind = TransferKind.HU
         else:  # bao
             amount = hu_amount_bao(state.rules, tai)
-            transfers = [
+            kind = TransferKind.BAO
+        transfers = [
+            Transfer(
+                from_player=target_player,
+                to_player=actor,
+                amount_cents=amount,
+                kind=kind,
+                hand_no=hand.hand_no,
+            )
+        ]
+        if klppdd:
+            transfers.append(
                 Transfer(
                     from_player=target_player,
                     to_player=actor,
-                    amount_cents=amount,
-                    kind=TransferKind.BAO,
+                    amount_cents=klppdd_amount_single_payer(state.rules),
+                    kind=TransferKind.KLPPDD,
                     hand_no=hand.hand_no,
                 )
-            ]
+            )
 
     close = _plan_hand_close(hand, is_win=True)
     payload = {
@@ -396,6 +430,8 @@ def declare_hu(
         "mode": mode,
         "target_seat": target_seat,
         "tai": tai,
+        "zimo_bonus": zimo_bonus,
+        "klppdd": klppdd,
         "winner": str(actor),
         "transfers": [t.model_dump(mode="json") for t in transfers],
         "engine_version": ENGINE_VERSION,

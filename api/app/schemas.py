@@ -66,3 +66,5 @@ class DeclareHuRequest(BaseModel):
     mode: Literal["direct", "zimo", "bao"]
     target_seat: int | None = None
     tai: int
+    zimo_bonus: bool = False
+    klppdd: bool = False

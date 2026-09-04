@@ -37,12 +37,16 @@ export const mahjongApi = {
     mode: "direct" | "zimo" | "bao",
     targetSeat: number | null,
     tai: number,
+    zimoBonus: boolean,
+    klppdd: boolean,
   ) =>
     post<MahjongRoomState>(`/rooms/${roomId}/mahjong/hu`, {
       expected_seq: expectedSeq,
       mode,
       target_seat: targetSeat,
       tai,
+      zimo_bonus: zimoBonus,
+      klppdd,
     }),
   declareNoWin: (roomId: string, expectedSeq: number) =>
     post<MahjongRoomState>(`/rooms/${roomId}/mahjong/no-win`, { expected_seq: expectedSeq }),
